@@ -1,52 +1,40 @@
-# sc-offline RU / Local — Development Status
+# sc-offline RU / Local — Local 4 status
 
-[Русская версия](RU_LOCAL_STATUS.md)
+[Русская версия](RU_LOCAL_STATUS.md) · [Release](https://github.com/sKeepers/sc-offline/releases/tag/ru-local-0.7.7-4) · [Windows ZIP](https://github.com/sKeepers/sc-offline/releases/download/ru-local-0.7.7-4/sc-offline-0.7.7-ru-local-4-windows-x64.zip) · [Source](https://github.com/sKeepers/sc-offline/tree/codex/release-0.7.7-ru-local-4)
 
-Updated: **October 12, 2026**.
+Updated: **October 13, 2026**. Published: **0.7.7 RU / Local 4, Windows x64 development pre-release**.
 
-This document describes a separate local edition based on [scubamount/sc-offline](https://github.com/scubamount/sc-offline). Original project attribution and the GPL-3.0 license are retained. Local changes are developed with assistance from Codex; some research models are developed with assistance from Claude.
+Base: v0.7.7 (`1ac5308a65ac0ba7955e4108bd1dc800449cfa69`) plus upstream changes through `85774b784d4cc8eb5dda75148387318486971ef6`. sco-core `cd9a686bda4184f1befbdf0b74b503a1565540dd`, SDK 2.0 / ABI 1.1. Local source commit `9ae147c574345a8593dbe28457d64a71c3318b02`.
 
-**Current local build: sc-offline 0.7.7 RU / Local 1.** Base: tag `v0.7.7`, commit `1ac5308a65ac0ba7955e4108bd1dc800449cfa69`; sco-core: `2197dfbf5a630e5a16a201526e628f1d28df908a`.
+## Included features
 
-This document reports local development results. The complete RU / Local source set and its binary release have not yet been published in this fork. The main branch and upstream Download links in the README should not be treated as a package of this edition.
-
-## Implemented locally
-
-| Area | Additions | Validation and limits |
+| Area | Implemented | Validation and limits |
 |---|---|---|
-| Russian interface | Menu and diagnostic translations; readable ship, NPC, item and object names; partial-name and original-class search | Parts of the interface have been checked by the user; complete translation of all game resources is not claimed |
-| Launcher | Version in the native window title and visible header; flight profile; player display name | The name changes in the mod UI; the client's internal player identifier remains unchanged |
-| Local server | Fleet, inventory ledger and storage-location dashboard; selection catalogs; dashboard data refresh | Separate SQLite bookkeeping, not a complete implementation of the game's servers |
-| Server controls | Automatic startup when Play is selected; start and graceful-stop buttons; reuse of an already running server | Start/stop/restart tested; data and pairing token retained |
-| Plugins | Exploration and loadout presets moved into separate plugins with a host adapter | Loading, UI and preset persistence/application tested outside the game; this does not persist physical character inventory |
-| Menu window | Adjustable width and height; size persistence across sessions, constrained to the monitor work area | Resizing confirmed; restoration in a subsequent game session still needs verification |
-| Starting locations | Stanton/Pyro location selection in the flight profile; travel between loaded system zones | Manual arrival at ArcCorp confirmed; corrected automatic startup order, player → ship → seat, installed and awaiting an in-game test |
-| Updates | Migrated to base 0.7.7, including the competing death-hook fix; protection against upstream auto-update overwriting RU / Local | Matching EXE/DLL/plugins built; installation backed up and protected-data hashes checked; gameplay after migration not yet verified |
+| Launcher localization | 306 UTF-8 key=value strings, en/ru catalogs, compiled English fallback, language selection | Key/placeholder/UTF-8/UTF-16/stable-ID/font-cmap tests passed; visual verification pending |
+| Game names | Discovery of Localization folders, global.ini and languages.ini; auto reads g_language in user.cfg | Russian in the Korean slot recognized; ru/de source selection checked autonomously. Labels never replace class identifiers |
+| Lists | Readable names and partial name/class search | An incomplete query cannot be saved as a ship class |
+| Flight | Stanton/Pyro profiles, favorites/routes, continuation and autosave | Limited state only, without cargo/damage/orientation restoration. Confirmed arrival precedes ship creation; destinations are not all verified |
+| Stations | Experimental Grim HEX, Seraphim, Everus Harbor, Baijini Point and Port Tressler starts | Exterior ship positions about 3 km away, not bed/medical/hangar spawns |
+| Menu window | Resizing and persisted dimensions constrained to the display | User confirmed resizing; restoration in further sessions still needs verification |
+| Dashboard | Catalogs, fleet/storage ledger, page refresh, service controls and fleet bridge | 24 packaged service/catalog/control tests passed; bookkeeping is separate from physical items/hangars |
+| Plugins | Creative, Discord, Exploration, Loadout Presets, NPC, Inspector; external SDK modules | Autonomous SDK checks passed; Creative off by default; full in-game acceptance pending |
+| NPC | Owned lifecycle and diagnostic readouts with a read-only ID source for UI | Leader/follow/guard quarantined after a crash; opt-in probes are not proof of safety or friendly behavior |
+| Networking | UDP diagnostics, poses and limited visual co-presence, LAN/VPN configuration | Two-PC VPN gameplay still needs verification; no shared physics, combat, damage, missions or inventory |
+| Name | Custom name in mod/network UI | Native mobiGlas DEFAULT_1 remains unresolved |
+| Updating | Upstream0.7.7/SDK2 alignment and separate local adapters; upstream releases are notification-only | Local features need explicit migration/testing; original auto-updates do not migrate them |
 
-## Not ready yet
+## Setup and upgrades
 
-- **NPC companion:** following and guarding are not confirmed. Regular commands are temporarily disabled after a crash. Relationship diagnostics and a limited, one-shot trial without assigning a buddy leader are available; the trial requires an NPC that is actually peaceful. `Security_Lawful` does not guarantee friendliness toward the player.
-- **Game-item persistence:** a source for real character inventory is still unavailable. Physical cargo, ship damage and shop purchases are not restored by the inventory ledger.
-- **Bed and medical registration:** exact restoration from a ship bed or medical-terminal registration is not implemented.
-- **Power and engines:** sending Flight Ready does not prove that engines are running; missing seat dashboards remain an issue in some cases.
-- **Network play:** LAN/VPN preparation and local checks are complete. A two-PC session still needs testing. Another player's visual presence does not imply shared physics, missions, cargo or inventory.
+Download the Windows ZIP, extract to a separate folder and run sc-offline.exe. Set game= in sc-offline.ini if needed. Python3.11+ with the standard library is required for the optional http://127.0.0.1:18870/ dashboard. Use server/Connect-Mod.cmd for fleet pairing.
 
-## Independent validation completed
+Close the game/launcher and back up the existing folder before upgrading. Preserve sc-offline.ini, data saves/settings and server/server-state. Copy these to the new folder, then overlay release files; retain user files absent from the release. Read RELEASE.en.md/docs/launcher.md inside the ZIP for setup, temporary system changes and normal offline cleanup.
 
-- Updated sco-core: **20** death-event checks and **217** storage checks, with no failures.
-- SDK boundary checks: **19** tests; release manifest: **12** tests.
-- Server, catalog and server controls: **24** tests using isolated databases and ports.
-- Local plugins: loading, rejection when the adapter is unavailable, UI rendering, unloading, a Cyrillic preset name and persistence across plugin reload.
-- Key lookup on pinned SQLite 3.53.4: **107,963** comparisons between two SQL queries and an independent reference, with no discrepancies. Near the end of a test range of 3,000 keys, VM steps fell from 12,015 to 11. This optimization is not yet enabled in the working SDK.
+## Publication and evidence
 
-Pure models and standalone checks do not replace in-game validation of NPC behavior, streaming, engines or UI. Reported tests of third-party research packages are distinguished from checks independently executed here.
+Release assets: Windows ZIP, complete source including sco-core/licenses, and SHA256SUMS.txt. GitHub asset digests match local hashes. User profiles/saves, passwords/tokens, databases/logs and game resources/translations are excluded. OfflineDB is the public upstream template.
 
-## Next steps
+Local checks passed: Release EXE/DLL build, native localization tests, SDK gate/tests, exact ImGui pin, report/profile checks, unpacked launcher self-test and 24 Python service tests. These do not establish gameplay correctness or whole GitHub CI success.
 
-1. Verify world loading after the 0.7.7 migration, automatic arrival at the selected location and menu-size restoration.
-2. Continue companion research: relationships, stable target/assignment identity, native cancellation and evidence of actual movement.
-3. Test the SQL optimization through the real host API; independently validate the snapshot model, compatibility with older saves and quota estimates.
-4. Connect a reliable game-item source before implementing restoration; keep large storage operations out of the game frame.
-5. Test a session with a friend over VPN and document the capabilities actually observed.
+The M menu/local plugins/dashboard remain Russian; a shared additive sco-core localization C service is a later phase. A dedicated world simulator, physical shared inventory/combat, medical/ship-bed spawning and reliable companion following are not implemented.
 
-Personal databases, tokens, memory dumps, game archives and original game assets are excluded from public reports. Updating this description does not constitute a binary release or completion of the research listed above.
+Main contains documentation on the earlier code base. Local4 implementation is on codex/release-0.7.7-ru-local-4, tagged ru-local-0.7.7-4. Development assisted by Codex; some research models assisted by Claude. ChrisWareOffline/scubamount attribution and licenses are retained.
