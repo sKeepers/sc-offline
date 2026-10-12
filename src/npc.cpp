@@ -6,6 +6,7 @@
 #include "sco/game/actors.h"
 #include "sco/game/features.h"
 #include "sco/signatures.h"
+#include "spawn_safety.h"
 #include <share.h>
 
 constexpr int        kMaxNpcs = 4096;
@@ -28,7 +29,7 @@ static bool    g_directRows = false;   // the npc.direct_remove capability
 // sco-core's npc.clear rows (sco/game/features.h) give the RemoveEntity slot; npc.direct_remove
 // (sco/game/actors.h) the fallback below.
 void ResolveNpcApi(const Section&) {
-    if (!ActorsCapability("npc.clear", "npc", "Clear NPCs")) return;
+    if (!ActorsCapability("npc.clear", "npc", "Убрать NPC")) return;
     g_removeSlot = Rel32(sco::Sig("npc.remove_entity_call") + sco::game::features::kRemoveSlotDisp);
     g_directRows = ActorsCapability("npc.direct_remove", "npc", "direct removal fallback");
 }
@@ -143,6 +144,10 @@ int32_t RemoveEntitySlot() { return g_removeSlot; }
 void TrackSpawnedNpc(uint64_t id) {
     if (id && g_spawnedCount < kMaxSpawned) g_spawned[g_spawnedCount++] = id;
 }
+static uint64_t g_sdkSelectedNpc = 0;
+const char* LocalNpcSpawnError(const char* entityClass) { return SpawnClassError(entityClass); }
+void LocalNpcSelection(uint64_t id) { g_sdkSelectedNpc = id; }
+uint64_t LastSpawnedNpcId() { return g_sdkSelectedNpc ? g_sdkSelectedNpc : g_spawnedCount ? g_spawned[g_spawnedCount - 1] : 0; }
 
 static void ClearNpcs() {
     if (!g_removeSlot) { Log("[npc] can't clear: RemoveEntity not found"); return; }
@@ -171,17 +176,22 @@ static int BuildNpcList() {
     FILE* f = _fsopen(path, "r", _SH_DENYNO);
     if (!f) { Log("[npc] can't open %s", path); return 0; }
     const uintptr_t registry = VCall<uintptr_t>(*g_tp.entitySystem, actors::kEsClassRegistry);
-    int n = 0, unknown = 0;
+    int n = 0, unknown = 0, blocked = 0;
     char line[160];
     while (n < kMaxNpcs && fgets(line, sizeof(line), f)) {
         line[strcspn(line, "\r\n#")] = 0;
         char* name = line + strspn(line, " \t");
         if (!*name) continue;
+        if (const char* reason = SpawnClassError(name)) {
+            ++blocked;
+            Log("[npc] blocked %s: %s", name, reason);
+            continue;
+        }
         if (!VCall<uintptr_t>(registry, actors::kRegistryFindClass, static_cast<const char*>(name))) { ++unknown; continue; }
         strncpy_s(g_npcs[n++], name, _TRUNCATE);
     }
     fclose(f);
-    Log("[npc] %d NPCs in the menu (%d unknown names skipped)", n, unknown);
+    Log("[npc] %d NPCs in the menu (%d unknown names skipped, %d known-crash classes blocked)", n, unknown, blocked);
     return n;
 }
 

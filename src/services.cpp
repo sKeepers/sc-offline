@@ -229,9 +229,9 @@ static uintptr_t __fastcall PermissionsHook(uintptr_t a1, uintptr_t a2, uintptr_
 enum HangarFeature { kInstance, kTokens, kDiagnostics, kHangarFeatureCount };
 struct HangarFeatureState { const char* cap; const char* title; const char* ready; bool on; char why[160]; };
 static HangarFeatureState g_hangar[kHangarFeatureCount] = {
-    { "hangar.instance", "personal hangars and elevators (rc7-rc11)", "the ATC's hangar streams in, joins the station and the elevators list it", false, "" },
-    { "atc.tokens", "ATC pad owner and pad marker (rc20-rc22)", "hails from your hangar are take-offs and landings show the pad", false, "" },
-    { "asop.diagnostics", "ASOP diagnostics (log only)", "[atc] and [iim] lines in mod.log", false, "" },
+    { "hangar.instance", "Личные ангары и лифты (rc7–rc11)", "ангар загружается, подключается к станции и отображается в лифтах", false, "" },
+    { "atc.tokens", "Владелец и маркер посадочной площадки (rc20–rc22)", "запросы из ангара обрабатываются как взлёт; при посадке показывается площадка", false, "" },
+    { "asop.diagnostics", "Диагностика ASOP (только журнал)", "строки [atc] и [iim] в mod.log", false, "" },
 };
 static bool g_hangarResolved = false;
 
@@ -722,7 +722,7 @@ void ResolveHangarsApi() {
 void LogHangars() {
     if (!g_hangarResolved || !AsopEnabled()) return;   // fleet.cpp's LogFleet says when ASOP is off
     for (const HangarFeatureState& f : g_hangar)
-        if (f.on) Log("[+] %s: ready (%s)", f.title, f.ready);
+        if (f.on) Log("[+] %s: доступно (%s)", f.title, f.ready);
         else      Log("[!] %s: %s", f.title, f.why);
 }
 

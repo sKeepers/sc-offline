@@ -8,7 +8,14 @@
 #include "menu_ui.h"
 #include "common.h"
 #include "version.h"
+#include "list_label.h"
+#include "../local/localization.h"
+#include "ship_label.h"
+#include <filesystem>
+#include <fstream>
 #include <atomic>
+#include <algorithm>
+#include <windowsx.h>
 #include <d3d11.h>
 #include <wincodec.h>
 #include <string>
@@ -36,7 +43,32 @@ static IDXGISwapChain*         g_swap;
 static ID3D11RenderTargetView* g_rtv;
 static UINT                    g_resizeW, g_resizeH;
 
-constexpr int kMenuW = 600, kMenuH = 900;
+constexpr int kMenuW = 780, kMenuH = 900;
+static bool g_sizingMenu = false;
+static bool g_menuPositioned = false;
+static bool g_clipped = false;
+static RECT g_clipRect = {};
+
+static void SaveMenuSize(HWND window) {
+    RECT bounds{}; char path[MAX_PATH] = {}, value[24] = {};
+    if (!g_menuPositioned || IsIconic(window) || !GetWindowRect(window, &bounds) ||
+        !DataFilePath(path, MAX_PATH, "menu-window.ini")) return;
+    const int width = bounds.right - bounds.left, height = bounds.bottom - bounds.top;
+    if (width < 1 || height < 1) return;
+    snprintf(value, sizeof(value), "%d", width);
+    WritePrivateProfileStringA("window", "width", value, path);
+    snprintf(value, sizeof(value), "%d", height);
+    WritePrivateProfileStringA("window", "height", value, path);
+}
+
+static int SavedMenuDimension(const char* key, int fallback, int minimum, int available) {
+    char path[MAX_PATH] = {};
+    int saved = fallback;
+    if (DataFilePath(path, MAX_PATH, "menu-window.ini"))
+        saved = static_cast<int>(GetPrivateProfileIntA("window", key, fallback, path));
+    if (saved < 1 || saved > 32768) saved = fallback;
+    return (std::min)(available, (std::max)(minimum, saved));
+}
 
 static void CreateRenderTarget() {
     ID3D11Texture2D* back = nullptr;
@@ -78,10 +110,52 @@ static LRESULT CALLBACK MenuWndProc(HWND h, UINT msg, WPARAM w, LPARAM l) {
     // game thread has it until the frame is built.
     if (!GameThreadBuilding() && ImGui_ImplWin32_WndProcHandler(h, msg, w, l)) return 1;
     switch (msg) {
+    case WM_NCCALCSIZE:
+        if (w) return 0; // keep the existing ImGui title and full client area
+        break;
+    case WM_NCHITTEST: {
+        POINT pt{GET_X_LPARAM(l), GET_Y_LPARAM(l)};
+        ScreenToClient(h, &pt);
+        RECT client{}; GetClientRect(h, &client);
+        constexpr int edge = 8;
+        const bool left = pt.x < edge, right = pt.x >= client.right - edge;
+        const bool top = pt.y < edge, bottom = pt.y >= client.bottom - edge;
+        if (top && left) return HTTOPLEFT;
+        if (top && right) return HTTOPRIGHT;
+        if (bottom && left) return HTBOTTOMLEFT;
+        if (bottom && right) return HTBOTTOMRIGHT;
+        if (left) return HTLEFT;
+        if (right) return HTRIGHT;
+        if (top) return HTTOP;
+        if (bottom) return HTBOTTOM;
+        if (pt.y < 26 && pt.x < client.right - 40) return HTCAPTION;
+        return HTCLIENT;
+    }
+    case WM_GETMINMAXINFO: {
+        auto limits = reinterpret_cast<MINMAXINFO*>(l);
+        MONITORINFO mi{sizeof(mi)};
+        if (GetMonitorInfoW(MonitorFromWindow(h, MONITOR_DEFAULTTONEAREST), &mi)) {
+            limits->ptMinTrackSize.x = (std::min)(640L, mi.rcWork.right - mi.rcWork.left);
+            limits->ptMinTrackSize.y = (std::min)(480L, mi.rcWork.bottom - mi.rcWork.top);
+            limits->ptMaxTrackSize.x = mi.rcWork.right - mi.rcWork.left;
+            limits->ptMaxTrackSize.y = mi.rcWork.bottom - mi.rcWork.top;
+        }
+        return 0;
+    }
+    case WM_ENTERSIZEMOVE:
+        g_sizingMenu = true;
+        ClipCursor(nullptr); // resizing must be able to move beyond the old window bounds
+        g_clipped = false;
+        return 0;
+    case WM_EXITSIZEMOVE:
+        g_sizingMenu = false;
+        SaveMenuSize(h);
+        return 0;
     case WM_SIZE:
         if (w != SIZE_MINIMIZED) { g_resizeW = LOWORD(l); g_resizeH = HIWORD(l); }
         return 0;
     case WM_CLOSE:
+        SaveMenuSize(h);
         ShowWindow(h, SW_HIDE);
         return 0;
     case WM_SYSCOMMAND:
@@ -97,10 +171,9 @@ static bool OurProcessHasFocus() {
     return pid == GetCurrentProcessId();
 }
 
-static bool g_clipped = false;
-static RECT g_clipRect = {};   // the rect last clipped to
 
 static void KeepCursorInMenu() {
+    if (g_sizingMenu) return;
     if (GetForegroundWindow() != g_wnd) {
         if (g_clipped) { ClipCursor(nullptr); g_clipped = false; }
         return;
@@ -118,11 +191,22 @@ static void ShowMenu(bool show) {
     if (show) {
         RECT r = {};
         GetWindowRect(g_game, &r);
-        SetWindowPos(g_wnd, HWND_TOPMOST, r.left + 60, r.top + 60, kMenuW, kMenuH, SWP_SHOWWINDOW);
+        if (!g_menuPositioned) {
+            MONITORINFO mi{sizeof(mi)};
+            GetMonitorInfoW(MonitorFromWindow(g_game, MONITOR_DEFAULTTONEAREST), &mi);
+            const int width = SavedMenuDimension("width", kMenuW, 640, int(mi.rcWork.right - mi.rcWork.left));
+            const int height = SavedMenuDimension("height", kMenuH, 480, int(mi.rcWork.bottom - mi.rcWork.top));
+            const int x = (std::max)(int(mi.rcWork.left), (std::min)(int(r.left + 60), int(mi.rcWork.right) - width));
+            const int y = (std::max)(int(mi.rcWork.top), (std::min)(int(r.top + 60), int(mi.rcWork.bottom) - height));
+            SetWindowPos(g_wnd, HWND_TOPMOST, x, y, width, height, SWP_SHOWWINDOW);
+            g_menuPositioned = true;
+        } else SetWindowPos(g_wnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOMOVE | SWP_NOSIZE);
         SetForegroundWindow(g_wnd);
-        SetCursorPos(r.left + 60 + kMenuW / 2, r.top + 60 + kMenuH / 2);
+        GetWindowRect(g_wnd, &r);
+        SetCursorPos((r.left + r.right) / 2, (r.top + r.bottom) / 2);
         KeepCursorInMenu();
     } else {
+        SaveMenuSize(g_wnd);
         ClipCursor(nullptr);
         g_clipped = false;
         ShowWindow(g_wnd, SW_HIDE);
@@ -130,23 +214,91 @@ static void ShowMenu(bool show) {
     }
 }
 
-static bool ContainsNoCase(const char* s, const char* needle, size_t n) {
-    for (; *s; ++s) {
-        size_t i = 0;
-        while (i < n && s[i] && tolower(static_cast<unsigned char>(s[i])) == tolower(static_cast<unsigned char>(needle[i]))) ++i;
-        if (i == n) return true;
-    }
-    return false;
+static std::wstring FoldUtf8(const char* text) {
+    const int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, nullptr, 0);
+    if (n <= 1) return {};
+    std::wstring wide(n, L'\0');
+    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, -1, wide.data(), n);
+    wide.pop_back();
+    const int size = LCMapStringEx(LOCALE_NAME_INVARIANT, LCMAP_LOWERCASE,
+        wide.data(), static_cast<int>(wide.size()), nullptr, 0, nullptr, nullptr, 0);
+    if (size <= 0) return wide;
+    std::wstring folded(size, L'\0');
+    LCMapStringEx(LOCALE_NAME_INVARIANT, LCMAP_LOWERCASE, wide.data(),
+        static_cast<int>(wide.size()), folded.data(), size, nullptr, nullptr, 0);
+    return folded;
 }
 
 bool MatchesFilter(const char* name, const char* filter) {
-    for (const char* p = filter; *p; ) {
-        p += strspn(p, " _");
-        const size_t n = strcspn(p, " _");
-        if (n && !ContainsNoCase(name, p, n)) return false;
-        p += n;
+    const std::wstring haystack = FoldUtf8(name), query = FoldUtf8(filter);
+    for (size_t at = 0; at < query.size();) {
+        at = query.find_first_not_of(L" _", at);
+        if (at == std::wstring::npos) break;
+        const size_t end = query.find_first_of(L" _", at);
+        if (haystack.find(query.substr(at, end - at)) == std::wstring::npos) return false;
+        if (end == std::wstring::npos) break;
+        at = end;
     }
     return true;
+}
+
+static bool g_listNamesRussian=true;
+static const std::unordered_map<std::string,std::string>& LocalizedNames() {
+    static const auto names=[] {
+        wchar_t exe[32768]{};
+        GetModuleFileNameW(nullptr,exe,32768);
+        const auto root=std::filesystem::path(exe).parent_path().parent_path();
+        wchar_t language[80]{},slot[80]{};
+        GetEnvironmentVariableW(L"SC_OFFLINE_LANGUAGE",language,80);GetEnvironmentVariableW(L"SC_OFFLINE_GAME_LANGUAGE",slot,80);
+        auto utf8=[](const wchar_t* w){std::string out;for(;*w;++w) {if(*w>127)return std::string{};out+=(char)*w;}return out;};
+        auto selected=LocalI18n::Discover(root,language[0]?utf8(language):"auto",slot[0]?utf8(slot):"auto","en");
+        g_listNamesRussian=selected.ui=="ru";
+        for(const auto& language:selected.available)if(language.slot==selected.slot)g_listNamesRussian=language.code=="ru";
+        std::string bytes;
+        if(selected.global.empty()||!LocalI18n::Read(selected.global,bytes,32*1024*1024))return std::unordered_map<std::string,std::string>{};
+        std::istringstream f(bytes);
+        return ReadLocalizedListNames(f);
+    }();
+    return names;
+}
+
+static std::string LocalizedName(const std::string& raw) {
+    std::string key=raw;
+    for(char& c:key) c=static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    const auto& names=LocalizedNames();
+    const auto it=names.find(key);
+    return it==names.end()?std::string{}:it->second;
+}
+
+const char* ReadableListName(const char* name) {
+    static std::unordered_map<std::string,std::string> cache;
+    auto [it,inserted]=cache.try_emplace(name?name:"");
+    if(inserted) {
+        char pretty[1024]{};
+        PrettyBuildName(pretty,sizeof(pretty),it->first.c_str());
+        it->second=LocalizedName(it->first);
+        if(it->second.empty()) it->second=g_listNamesRussian?ListDisplayLabel(pretty):std::string(pretty);
+    }
+    return it->second.c_str();
+}
+
+const char* ReadableShipName(const char* name) {
+    static std::unordered_map<std::string,std::string> cache;
+    auto [it,inserted]=cache.try_emplace(name?name:"");
+    if(inserted) {
+        it->second=LocalizedName(it->first);
+        if(it->second.empty()) it->second=ShipDisplayLabel(it->first.c_str());
+    }
+    return it->second.c_str();
+}
+
+bool ListMatchesFilter(const char* raw, const char* display, const char* filter) {
+    if(!filter || !filter[0]) return true;
+    const std::string combined=std::string(raw?raw:"")+" "+(display?display:"");
+    static std::unordered_map<std::string,std::string> aliases;
+    auto [it,inserted]=aliases.try_emplace(combined);
+    if(inserted) it->second=combined+" "+ListDisplayLabel(raw)+" "+ListDisplayLabel(display);
+    return MatchesFilter(it->second.c_str(),filter);
 }
 
 // =============================================================================================
@@ -245,7 +397,8 @@ static void LoadFonts() {
     ImGuiIO& io = ImGui::GetIO();
     char dir[MAX_PATH] = "C:\\Windows";
     GetWindowsDirectoryA(dir, sizeof(dir));
-    static const char* const kFonts[] = { "bahnschrift.ttf", "segoeui.ttf" };
+    // Segoe UI includes Cyrillic; ImGui 1.92 loads glyphs on demand.
+    static const char* const kFonts[] = { "segoeui.ttf", "bahnschrift.ttf" };
     ImFont* font = nullptr;
     for (const char* name : kFonts) {
         char path[MAX_PATH];
@@ -404,27 +557,27 @@ void PrettyBuildName(char* out, size_t n, const char* name) {
 // =============================================================================================
 
 static void DrawMenuTab() {
-    SectionHeading("Background");
+    SectionHeading("Фон");
     if (g_bgSrv) {
-        ImGui::Checkbox("Show background image", &g_bgShow);
+        ImGui::Checkbox("Показывать фоновое изображение", &g_bgShow);
         ImGui::BeginDisabled(!g_bgShow);
         ImGui::SetNextItemWidth(-1);
-        ImGui::SliderInt("##dark", &g_bgDarkness, 20, 95, "Darkness %d%%");
+        ImGui::SliderInt("##dark", &g_bgDarkness, 20, 95, "Затемнение %d%%");
         if (static_cast<float>(g_bgW) / g_bgH > 0.7f) {
             ImGui::SetNextItemWidth(-1);
-            ImGui::SliderFloat("##pos", &g_bgPosition, 0.0f, 1.0f, "Image position");
-            ImGui::SetItemTooltip("The menu is taller than the picture is wide. Slide to choose which part shows.");
+            ImGui::SliderFloat("##pos", &g_bgPosition, 0.0f, 1.0f, "Положение изображения");
+            ImGui::SetItemTooltip("Выберите ползунком, какую часть изображения показывать в меню.");
         }
         ImGui::EndDisabled();
         Hint(g_bgPath);
     } else {
-        Hint("To use a background image, save it as menu_background.png (or .jpg) here, then restart the game:");
+        Hint("Для своего фона сохраните здесь menu_background.png (или .jpg) и перезапустите игру:");
         ImGui::TextWrapped("%s", g_bgPath[0] ? g_bgPath : "data\\menu_background.png");
     }
 
-    SectionHeading("About");
-    Hint(SCO_TITLE " is a work in progress, " SCO_BASED_ON ".");
-    Hint("Bug reports: github.com/scubamount/sc-offline/issues");
+    SectionHeading("О программе");
+    Hint(SCO_TITLE " — проект в разработке, " SCO_BASED_ON ".");
+    Hint("Сообщения об ошибках: github.com/scubamount/sc-offline/issues");
 }
 
 // =============================================================================================
@@ -486,7 +639,7 @@ static bool DrawMenu() {
 
     const float statusHeight = ImGui::GetTextLineHeight() * 2 + 18;
     const float bodyHeight = -(statusHeight + ImGui::GetStyle().ItemSpacing.y);
-    if (ImGui::BeginTabBar("##tabs", ImGuiTabBarFlags_FittingPolicyShrink)) {
+    if (ImGui::BeginTabBar("##tabs", ImGuiTabBarFlags_FittingPolicyScroll)) {
         auto body = [&](auto draw) {
             if (ImGui::BeginChild("##body", ImVec2(0, bodyHeight))) draw();
             ImGui::EndChild();
@@ -502,7 +655,7 @@ static bool DrawMenu() {
             first = false;
             if (ImGui::BeginTabItem(label.c_str(), nullptr, flags)) { body([&] { DrawPluginTab(t, frame); }); ImGui::EndTabItem(); }
         }
-        if (ImGui::BeginTabItem("Menu", nullptr, first ? ImGuiTabItemFlags_SetSelected : 0)) { body([&] { DrawMenuTab(); }); ImGui::EndTabItem(); }
+        if (ImGui::BeginTabItem("Меню", nullptr, first ? ImGuiTabItemFlags_SetSelected : 0)) { body([&] { DrawMenuTab(); }); ImGui::EndTabItem(); }
         ImGui::EndTabBar();
     }
     DrawStatusStrip(statusHeight);
@@ -594,7 +747,7 @@ static DWORD WINAPI MenuThread(LPVOID) {
     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
     wc.lpszClassName = L"starcitzenofflinemods_menu";
     RegisterClassExW(&wc);
-    g_wnd = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TOOLWINDOW, wc.lpszClassName, L"sc-offline", WS_POPUP,
+    g_wnd = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TOOLWINDOW, wc.lpszClassName, L"sc-offline", WS_POPUP | WS_THICKFRAME,
                             100, 100, kMenuW, kMenuH, nullptr, nullptr, wc.hInstance, nullptr);
     g_frameBuilt = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     if (!g_wnd || !g_frameBuilt || !CreateDevice()) return 0;
@@ -618,6 +771,7 @@ static DWORD WINAPI MenuThread(LPVOID) {
     if (SUCCEEDED(com)) CoUninitialize();
 
     bool visible = false, wasDown = false;
+    ULONGLONG nextDiagnosticRequest = 0;
     for (;;) {
         // Take ImGui back from a request the game thread hasn't started; let one it has finish.
         InterlockedCompareExchange(&g_frameState, Frame_Idle, Frame_Wanted);
@@ -630,6 +784,23 @@ static DWORD WINAPI MenuThread(LPVOID) {
         }
         // M is the product's own key (reserved in sco.ui): plugins can't bind it.
         const bool down = (GetAsyncKeyState('M') & 0x8000) != 0;
+        // Local test helper: a one-shot request opens the same UI as M. It never
+        // spawns an actor or executes an AI order, and is absent in normal use.
+        const ULONGLONG now = GetTickCount64();
+        if (now >= nextDiagnosticRequest) {
+            nextDiagnosticRequest = now + 500;
+            char request[MAX_PATH];
+            if (DataFilePath(request, MAX_PATH, "menu-open.request") &&
+                GetFileAttributesA(request) != INVALID_FILE_ATTRIBUTES && DeleteFileA(request)) {
+                // Expose the diagnostic menu as a separate targetable app window.
+                // Normal M-opened menus keep their original tool-window style.
+                const LONG_PTR style = GetWindowLongPtrW(g_wnd, GWL_EXSTYLE);
+                SetWindowLongPtrW(g_wnd, GWL_EXSTYLE, (style & ~WS_EX_TOOLWINDOW) | WS_EX_APPWINDOW);
+                visible = true;
+                ShowMenu(true);
+                Log("[menu] local diagnostic open request consumed");
+            }
+        }
         const bool typing = visible && GetForegroundWindow() == g_wnd && ImGui::GetIO().WantTextInput;
         g_typing = typing;
         if (down && !wasDown && !typing && OurProcessHasFocus()) { visible = !visible; ShowMenu(visible); }

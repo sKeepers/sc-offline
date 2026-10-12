@@ -1,0 +1,20 @@
+{
+  "Launcher": "Лаунчер",
+  "Status": "Состояние",
+  "Actions": "Действие",
+  "Game folder not known yet": "Папка игры пока неизвестна",
+  "Not safe to go online": "Игра запущена",
+  "Not safe to go online yet": "Остались изменения мода",
+  "Safe to go online": "Изменения мода убраны",
+  "Yes": "Да",
+  "No": "Нет",
+  "Power on / off": "Включить / выключить питание",
+  "Power on": "Включить питание",
+  "Spawn NPCs": "Создать NPC",
+  "Clear NPCs": "Убрать NPC",
+  "Player": "Игрок",
+  "Speed %.0f": "Скорость %.0f",
+  "Natural mining": "Добыча природных ресурсов",
+  "Protection": "Защита",
+  "Noclip, god mode and infinite ammo come from the creative plugin. Turn it on in the launcher's Plugins page.": "Полёт сквозь объекты, неуязвимость и боеприпасы доступны через плагин creative. Включите его на странице плагинов лаунчера."
+}

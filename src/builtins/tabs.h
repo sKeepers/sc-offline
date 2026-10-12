@@ -38,8 +38,8 @@ void DrawSq42Tab(void* frame, void* ctx);       // loadout_ui.cpp
 void DrawTravelTab(void* frame, void* ctx);     // quantum_ui.cpp
 void DrawVehiclesTab(void* frame, void* ctx);   // spawn_ui.cpp
 void DrawCrewTab(void* frame, void* ctx);       // crew_ui.cpp
+void DrawNpcsTab(void* frame, void* ctx);       // local host UI for external npc commands
 void CrewTabTick(uint32_t now);                 // crew_ui.cpp: the Crew tab's seat actions (spawner.cpp's ProcessCrew)
-void DrawNpcsTab(void* frame, void* ctx);       // npc_ui.cpp
 void DrawBuildTab(void* frame, void* ctx);      // build_ui.cpp
 void DrawMultiplayerTab(void* frame, void* ctx);   // multiplayer_ui.cpp
 void DrawTitanLinkTab(void* frame, void* ctx);  // titanlink/titanlink_ui.cpp (optional)

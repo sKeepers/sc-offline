@@ -1,0 +1,1617 @@
+[
+  {
+    "key": "launcher.press_enter_to_close_this_window.96d123c010",
+    "file": "launcher/launcher.cpp",
+    "line": 139
+  },
+  {
+    "key": "launcher.sc_offline_ini_line_d_expected_key_value.f0690d7721",
+    "file": "launcher/launcher.cpp",
+    "line": 245
+  },
+  {
+    "key": "launcher.resume_on_or_off.a1c8feaec1",
+    "file": "launcher/launcher.cpp",
+    "line": 251
+  },
+  {
+    "key": "launcher.autosave_on_or_off.257d7cd458",
+    "file": "launcher/launcher.cpp",
+    "line": 252
+  },
+  {
+    "key": "launcher.sc_offline_ini_line_d_ls_must_be_on_or_off.b280560e1d",
+    "file": "launcher/launcher.cpp",
+    "line": 258
+  },
+  {
+    "key": "launcher.sc_offline_ini_line_d_crash_reports_must_be_o.1f40ab251a",
+    "file": "launcher/launcher.cpp",
+    "line": 261
+  },
+  {
+    "key": "launcher.sc_offline_ini_line_d_plugins_must_be_on_or_o.33e289f46e",
+    "file": "launcher/launcher.cpp",
+    "line": 268
+  },
+  {
+    "key": "launcher.sc_offline_ini_line_d_multiplayer_must_be_on_.d1ac710ae2",
+    "file": "launcher/launcher.cpp",
+    "line": 271
+  },
+  {
+    "key": "launcher.sc_offline_ini_line_d_multiplayer_allow_must_.6538070d0f",
+    "file": "launcher/launcher.cpp",
+    "line": 277
+  },
+  {
+    "key": "launcher.sc_offline_ini_line_d_asop_must_be_on_or_off.2eabe3dca4",
+    "file": "launcher/launcher.cpp",
+    "line": 281
+  },
+  {
+    "key": "launcher.sc_offline_ini_line_d_asop_fleet_list_must_be.6d1ca96701",
+    "file": "launcher/launcher.cpp",
+    "line": 285
+  },
+  {
+    "key": "launcher.sc_offline_ini_line_d_check_updates_must_be_o.9082cd4652",
+    "file": "launcher/launcher.cpp",
+    "line": 294
+  },
+  {
+    "key": "launcher.sc_offline_ini_line_d_update_channel_must_be_.8c21c5545d",
+    "file": "launcher/launcher.cpp",
+    "line": 299
+  },
+  {
+    "key": "launcher.sc_offline_ini_line_d_clean_logs_must_be_ask_.9140f72353",
+    "file": "launcher/launcher.cpp",
+    "line": 303
+  },
+  {
+    "key": "launcher.sc_offline_ini_line_d_unknown_key_ls.af84308f33",
+    "file": "launcher/launcher.cpp",
+    "line": 305
+  },
+  {
+    "key": "launcher.unexpected_reply_from_github.cc47cdb77c",
+    "file": "launcher/launcher.cpp",
+    "line": 506
+  },
+  {
+    "key": "launcher.couldn_t_reach_github.af9c986a73",
+    "file": "launcher/launcher.cpp",
+    "line": 537
+  },
+  {
+    "key": "launcher.unexpected_reply_from_github.cc47cdb77c",
+    "file": "launcher/launcher.cpp",
+    "line": 541
+  },
+  {
+    "key": "launcher.latest_release_is_a_pre_release.0ec6b1ef53",
+    "file": "launcher/launcher.cpp",
+    "line": 555
+  },
+  {
+    "key": "launcher.no_releases_found.29e2c2a070",
+    "file": "launcher/launcher.cpp",
+    "line": 563
+  },
+  {
+    "key": "launcher.up_to_date_latest.b3774fcb0e",
+    "file": "launcher/launcher.cpp",
+    "line": 563
+  },
+  {
+    "key": "launcher.couldn_t_unpack_the_zip_windows_tar_exe_s_not.566d0d479e",
+    "file": "launcher/launcher.cpp",
+    "line": 914
+  },
+  {
+    "key": "launcher.the_release_s_manifest_check_failed_s_nothing.eb7af8b79e",
+    "file": "launcher/launcher.cpp",
+    "line": 920
+  },
+  {
+    "key": "launcher.the_zip_holds_ls_which_its_manifest_doesn_t_l.3e300e912d",
+    "file": "launcher/launcher.cpp",
+    "line": 929
+  },
+  {
+    "key": "launcher.the_release_doesn_t_hold_sc_offline_exe_and_d.c0e27c7127",
+    "file": "launcher/launcher.cpp",
+    "line": 932
+  },
+  {
+    "key": "launcher.couldn_t_stage_ls_error_lu_nothing_changed.573ee9cf9b",
+    "file": "launcher/launcher.cpp",
+    "line": 941
+  },
+  {
+    "key": "launcher.staging_failed_s_nothing_changed.84d25a2cbf",
+    "file": "launcher/launcher.cpp",
+    "line": 946
+  },
+  {
+    "key": "launcher.all_zu_files_match_the_release_manifest_s_sta.0942ab869e",
+    "file": "launcher/launcher.cpp",
+    "line": 949
+  },
+  {
+    "key": "launcher.not_enough_free_disk_space_for_the_update_llu.fdb60b06bf",
+    "file": "launcher/launcher.cpp",
+    "line": 962
+  },
+  {
+    "key": "launcher.i_the_download_stalled_or_failed_trying_once_.999e08eb0e",
+    "file": "launcher/launcher.cpp",
+    "line": 970
+  },
+  {
+    "key": "launcher.download_failed_nothing_changed.e777b2da81",
+    "file": "launcher/launcher.cpp",
+    "line": 971
+  },
+  {
+    "key": "launcher.the_download_doesn_t_match_github_s_sha_256_g.18d356761e",
+    "file": "launcher/launcher.cpp",
+    "line": 974
+  },
+  {
+    "key": "launcher.sha_256_matches_github_s_digest.86321728f8",
+    "file": "launcher/launcher.cpp",
+    "line": 977
+  },
+  {
+    "key": "launcher.couldn_t_save_the_download_nothing_changed.23d411a782",
+    "file": "launcher/launcher.cpp",
+    "line": 979
+  },
+  {
+    "key": "launcher.local_original_update_installation_blocked_lo.2669521125",
+    "file": "launcher/launcher.cpp",
+    "line": 994
+  },
+  {
+    "key": "launcher.ls_is_running_close_it_before_updating_nothin.7e2db915f1",
+    "file": "launcher/launcher.cpp",
+    "line": 999
+  },
+  {
+    "key": "launcher.the_staged_update_doesn_t_match_its_manifest_.5f9d5e530f",
+    "file": "launcher/launcher.cpp",
+    "line": 1002
+  },
+  {
+    "key": "launcher.couldn_t_move_ls_aside_error_lu.b4a197151d",
+    "file": "launcher/launcher.cpp",
+    "line": 1032
+  },
+  {
+    "key": "launcher.couldn_t_put_ls_in_place_error_lu.28e3245d1a",
+    "file": "launcher/launcher.cpp",
+    "line": 1035
+  },
+  {
+    "key": "launcher.update_failed_putting_the_old_files_back.42987f5abc",
+    "file": "launcher/launcher.cpp",
+    "line": 1040
+  },
+  {
+    "key": "launcher.the_new_sc_offline_exe_failed_its_self_test_p.db3ed5a35e",
+    "file": "launcher/launcher.cpp",
+    "line": 1048
+  },
+  {
+    "key": "launcher.updated_to_s_d_files_replaced_d_added_your_sa.3de5d2cf6f",
+    "file": "launcher/launcher.cpp",
+    "line": 1055
+  },
+  {
+    "key": "launcher.i_this_folder_needs_administrator_rights_to_u.0d3afc940d",
+    "file": "launcher/launcher.cpp",
+    "line": 1064
+  },
+  {
+    "key": "launcher.administrator_rights_refused_nothing_changed.670a9ab717",
+    "file": "launcher/launcher.cpp",
+    "line": 1069
+  },
+  {
+    "key": "launcher.the_update_failed_exit_lu_see_data_launcher_l.80308d2169",
+    "file": "launcher/launcher.cpp",
+    "line": 1072
+  },
+  {
+    "key": "launcher.couldn_t_start_the_new_sc_offline_exe_error_l.978dc7288e",
+    "file": "launcher/launcher.cpp",
+    "line": 1114
+  },
+  {
+    "key": "launcher.the_new_sc_offline_exe_hung_in_its_self_test.b05eb65a36",
+    "file": "launcher/launcher.cpp",
+    "line": 1116
+  },
+  {
+    "key": "launcher.the_new_sc_offline_exe_self_test_exited_lu.43cbfa246d",
+    "file": "launcher/launcher.cpp",
+    "line": 1119
+  },
+  {
+    "key": "launcher.the_new_sc_offline_exe_passed_its_self_test.3acee0a3f8",
+    "file": "launcher/launcher.cpp",
+    "line": 1120
+  },
+  {
+    "key": "launcher.self_test_this_is_s_expected_s.11731d15a5",
+    "file": "launcher/launcher.cpp",
+    "line": 1129
+  },
+  {
+    "key": "launcher.self_test_sha_256_broken.5272e94ab3",
+    "file": "launcher/launcher.cpp",
+    "line": 1130
+  },
+  {
+    "key": "launcher.self_test_no_dinput8_dll_beside_sc_offline_ex.259077107e",
+    "file": "launcher/launcher.cpp",
+    "line": 1131
+  },
+  {
+    "key": "launcher.self_test_sc_offline_s_ok.4b652b7f72",
+    "file": "launcher/launcher.cpp",
+    "line": 1132
+  },
+  {
+    "key": "launcher.couldn_t_start_the_new_launcher_error_lu_run_.7b3c827f31",
+    "file": "launcher/launcher.cpp",
+    "line": 1171
+  },
+  {
+    "key": "launcher.logs_the_game_wrote_no_logs_this_session.cf8159ee58",
+    "file": "launcher/launcher.cpp",
+    "line": 1347
+  },
+  {
+    "key": "launcher.the_game_wrote_these_logs_during_this_modded_.ee640c79b1",
+    "file": "launcher/launcher.cpp",
+    "line": 1348
+  },
+  {
+    "key": "launcher.deleting_them_removes_the_record_of_this_sess.21dd0bac85",
+    "file": "launcher/launcher.cpp",
+    "line": 1350
+  },
+  {
+    "key": "launcher.delete_these_files.f2585ea31c",
+    "file": "launcher/launcher.cpp",
+    "line": 1351
+  },
+  {
+    "key": "launcher.logs_kept.56325f1a1d",
+    "file": "launcher/launcher.cpp",
+    "line": 1351
+  },
+  {
+    "key": "launcher.are_you_sure_they_can_t_be_recovered.bb87e6d91c",
+    "file": "launcher/launcher.cpp",
+    "line": 1352
+  },
+  {
+    "key": "launcher.logs_kept.56325f1a1d",
+    "file": "launcher/launcher.cpp",
+    "line": 1352
+  },
+  {
+    "key": "launcher.couldn_t_delete_ls_error_lu.6395d6e9c9",
+    "file": "launcher/launcher.cpp",
+    "line": 1357
+  },
+  {
+    "key": "launcher.i_d_file_s_need_administrator_rights_to_delet.247ea65fbf",
+    "file": "launcher/launcher.cpp",
+    "line": 1362
+  },
+  {
+    "key": "launcher.zu_file_s_still_there_administrator_rights_re.bac977e2ee",
+    "file": "launcher/launcher.cpp",
+    "line": 1373
+  },
+  {
+    "key": "launcher.logs_deleted_d_file_s_s.60e3b88df5",
+    "file": "launcher/launcher.cpp",
+    "line": 1375
+  },
+  {
+    "key": "launcher.see_above_for_the_rest.bb4327ccae",
+    "file": "launcher/launcher.cpp",
+    "line": 1375
+  },
+  {
+    "key": "launcher.remembered_from_your_last_run.4cf0f1b501",
+    "file": "launcher/launcher.cpp",
+    "line": 1426
+  },
+  {
+    "key": "launcher.from_the_rsi_launcher_s_install_entry.f7c9be2075",
+    "file": "launcher/launcher.cpp",
+    "line": 1457
+  },
+  {
+    "key": "launcher.the_game_crashed_this_session_zu_file_s_in_ls.a810ad5c0a",
+    "file": "launcher/launcher.cpp",
+    "line": 1895
+  },
+  {
+    "key": "launcher.a_crash_report_zips_mod_log_launcher_log_game.5a388d99ae",
+    "file": "launcher/launcher.cpp",
+    "line": 1896
+  },
+  {
+    "key": "launcher.memory_dumps_dmp_are_left_out_they_can_t_be_r.369662637a",
+    "file": "launcher/launcher.cpp",
+    "line": 1896
+  },
+  {
+    "key": "launcher.make_a_crash_report.6243c3a451",
+    "file": "launcher/launcher.cpp",
+    "line": 1897
+  },
+  {
+    "key": "launcher.crash_no_report_made.34a7cd94c4",
+    "file": "launcher/launcher.cpp",
+    "line": 1897
+  },
+  {
+    "key": "launcher.crash_report_saved_ls_d_file_s_s.7ffee8b83c",
+    "file": "launcher/launcher.cpp",
+    "line": 1936
+  },
+  {
+    "key": "launcher.tar_exe_failed_so_it_is_a_folder_zip_it_yours.466e4690fc",
+    "file": "launcher/launcher.cpp",
+    "line": 1937
+  },
+  {
+    "key": "launcher.look_through_it_before_you_share_it_the_redac.e5a83bb1c0",
+    "file": "launcher/launcher.cpp",
+    "line": 1938
+  },
+  {
+    "key": "launcher.open_the_bug_form_in_your_browser_you_attach_.a052f8f44e",
+    "file": "launcher/launcher.cpp",
+    "line": 1939
+  },
+  {
+    "key": "launcher.firewall_rule_ls.76bbfaec22",
+    "file": "launcher/launcher.cpp",
+    "line": 2123
+  },
+  {
+    "key": "launcher.hosts_line_for_s.46bed6b4ba",
+    "file": "launcher/launcher.cpp",
+    "line": 2124
+  },
+  {
+    "key": "launcher.easyanticheat_eos_exe_renamed_to_bak.56f0d7a0d0",
+    "file": "launcher/launcher.cpp",
+    "line": 2125
+  },
+  {
+    "key": "launcher.remove_the_firewall_rule_ls.3fe7b9f614",
+    "file": "launcher/launcher.cpp",
+    "line": 2134
+  },
+  {
+    "key": "launcher.couldn_t_remove_the_firewall_rule_remove_ls_i.50e387b098",
+    "file": "launcher/launcher.cpp",
+    "line": 2136
+  },
+  {
+    "key": "launcher.remove_sc_offline_s_line_from_the_hosts_file.7cb2bd74ab",
+    "file": "launcher/launcher.cpp",
+    "line": 2139
+  },
+  {
+    "key": "launcher.couldn_t_edit_ls_error_lu_delete_the_s_line_b.b212721844",
+    "file": "launcher/launcher.cpp",
+    "line": 2141
+  },
+  {
+    "key": "launcher.rename_easyanticheat_eos_exe_bak_back.eb5ba59dd1",
+    "file": "launcher/launcher.cpp",
+    "line": 2143
+  },
+  {
+    "key": "launcher.couldn_t_rename_ls_back_error_lu.a455493ae2",
+    "file": "launcher/launcher.cpp",
+    "line": 2146
+  },
+  {
+    "key": "launcher.multiplayer_allow_ignored_not_a_list_of_ipv4_.88cc279efc",
+    "file": "launcher/launcher.cpp",
+    "line": 2175
+  },
+  {
+    "key": "launcher.i_rsi_launcher_exe_not_found_not_blocking_it.855f01404a",
+    "file": "launcher/launcher.cpp",
+    "line": 2178
+  },
+  {
+    "key": "launcher.i_firewall_rule_ls_already_in_place.a22ad95b45",
+    "file": "launcher/launcher.cpp",
+    "line": 2179
+  },
+  {
+    "key": "launcher.add_a_firewall_rule_blocking_ls.c9f10f95d3",
+    "file": "launcher/launcher.cpp",
+    "line": 2180
+  },
+  {
+    "key": "launcher.couldn_t_leave_your_lan_open_in_the_firewall_.049362bae5",
+    "file": "launcher/launcher.cpp",
+    "line": 2185
+  },
+  {
+    "key": "launcher.couldn_t_add_the_firewall_rule_netsh_failed.7f0f890284",
+    "file": "launcher/launcher.cpp",
+    "line": 2188
+  },
+  {
+    "key": "launcher.i_firewall_rule_ls_already_in_place.a22ad95b45",
+    "file": "launcher/launcher.cpp",
+    "line": 2193
+  },
+  {
+    "key": "launcher.add_a_firewall_rule_letting_your_lan_ls_reach.bab3b7f66b",
+    "file": "launcher/launcher.cpp",
+    "line": 2194
+  },
+  {
+    "key": "launcher.couldn_t_add_the_multiplayer_firewall_rule_a_.fa54510b3e",
+    "file": "launcher/launcher.cpp",
+    "line": 2196
+  },
+  {
+    "key": "launcher.add_127_0_0_1_s_to_the_hosts_file.7011f255f4",
+    "file": "launcher/launcher.cpp",
+    "line": 2202
+  },
+  {
+    "key": "launcher.couldn_t_edit_ls_error_lu_antivirus_may_prote.a4d774a9be",
+    "file": "launcher/launcher.cpp",
+    "line": 2203
+  },
+  {
+    "key": "launcher.i_easy_anti_cheat_is_already_off_or_not_insta.028a8d7bcb",
+    "file": "launcher/launcher.cpp",
+    "line": 2210
+  },
+  {
+    "key": "launcher.rename_easyanticheat_eos_exe_to_bak.730fdde6a7",
+    "file": "launcher/launcher.cpp",
+    "line": 2211
+  },
+  {
+    "key": "launcher.couldn_t_rename_ls_error_lu.9525b41239",
+    "file": "launcher/launcher.cpp",
+    "line": 2213
+  },
+  {
+    "key": "launcher.pc_changes_undone.3f6b83643a",
+    "file": "launcher/launcher.cpp",
+    "line": 2281
+  },
+  {
+    "key": "launcher.i_windows_will_ask_for_administrator_rights_o.841ec4ae28",
+    "file": "launcher/launcher.cpp",
+    "line": 2366
+  },
+  {
+    "key": "launcher.i_the_game_folder_needs_administrator_rights_.fb07d6b05d",
+    "file": "launcher/launcher.cpp",
+    "line": 2368
+  },
+  {
+    "key": "launcher.i_ctrl_c_ignored_close_the_game_instead_the_m.e69574288f",
+    "file": "launcher/launcher.cpp",
+    "line": 2383
+  },
+  {
+    "key": "launcher.local_server_files_were_not_found_next_to_the.a8c383bf71",
+    "file": "launcher/launcher.cpp",
+    "line": 2396
+  },
+  {
+    "key": "launcher.python_for_the_local_server_was_not_found.97e5edddb6",
+    "file": "launcher/launcher.cpp",
+    "line": 2402
+  },
+  {
+    "key": "launcher.could_not_start_server_management_error_lu.104e4f3ff6",
+    "file": "launcher/launcher.cpp",
+    "line": 2408
+  },
+  {
+    "key": "launcher.server_did_not_respond_in_time_check_server_s.8004c37478",
+    "file": "launcher/launcher.cpp",
+    "line": 2412
+  },
+  {
+    "key": "launcher.server_management_failed_check_server_server_.7728c9bd91",
+    "file": "launcher/launcher.cpp",
+    "line": 2414
+  },
+  {
+    "key": "launcher.i_local_server_stopped_data_saved.88ef43fb73",
+    "file": "launcher/launcher.cpp",
+    "line": 2415
+  },
+  {
+    "key": "launcher.i_local_server_available_http_127_0_0_1_18870.d69d09167e",
+    "file": "launcher/launcher.cpp",
+    "line": 2415
+  },
+  {
+    "key": "launcher.mod_dll_missing_dinput8_dll_next_to_sc_offlin.b9c56097e2",
+    "file": "launcher/launcher.cpp",
+    "line": 2425
+  },
+  {
+    "key": "launcher.mod_dll_s_sha256_s.da44e99cea",
+    "file": "launcher/launcher.cpp",
+    "line": 2427
+  },
+  {
+    "key": "launcher.the_prebuilt_dll_only_knows_boot_map_pu_set_t.ed5acf4ab3",
+    "file": "launcher/launcher.cpp",
+    "line": 2429
+  },
+  {
+    "key": "launcher.i_this_launcher_is_s_the_dll_is_s.6623119c32",
+    "file": "launcher/launcher.cpp",
+    "line": 2431
+  },
+  {
+    "key": "launcher.game_s.e8783a3210",
+    "file": "launcher/launcher.cpp",
+    "line": 2439
+  },
+  {
+    "key": "launcher.version_unknown.44901c136e",
+    "file": "launcher/launcher.cpp",
+    "line": 2439
+  },
+  {
+    "key": "launcher.the_game_updated_since_you_last_played_was_s_.0169bb18d1",
+    "file": "launcher/launcher.cpp",
+    "line": 2441
+  },
+  {
+    "key": "launcher.installed_no_bin64_has_no_dinput8_dll.b96d4bb6c6",
+    "file": "launcher/launcher.cpp",
+    "line": 2447
+  },
+  {
+    "key": "launcher.installed_yes_s_s_s.41a8d2ac4c",
+    "file": "launcher/launcher.cpp",
+    "line": 2449
+  },
+  {
+    "key": "launcher.since.a0f2cd44fb",
+    "file": "launcher/launcher.cpp",
+    "line": 2449
+  },
+  {
+    "key": "launcher.installed_no_bin64_has_another_mod_s_dinput8_.b6d2376784",
+    "file": "launcher/launcher.cpp",
+    "line": 2451
+  },
+  {
+    "key": "launcher.the_mod_is_still_in_the_game_folder_a_crash_o.b7557a6548",
+    "file": "launcher/launcher.cpp",
+    "line": 2453
+  },
+  {
+    "key": "launcher.pc_changes_from_a_previous_run_s_are_still_in.f634d17714",
+    "file": "launcher/launcher.cpp",
+    "line": 2459
+  },
+  {
+    "key": "launcher.run_sc_offline_exe_uninstall_to_undo_them_bef.b7a9bc965d",
+    "file": "launcher/launcher.cpp",
+    "line": 2461
+  },
+  {
+    "key": "launcher.network_s_s.da813db483",
+    "file": "launcher/launcher.cpp",
+    "line": 2463
+  },
+  {
+    "key": "launcher.blocked_for_starcitizen_exe_rsi_launcher_exe_.6688227c64",
+    "file": "launcher/launcher.cpp",
+    "line": 2463
+  },
+  {
+    "key": "launcher.not_blocked_block_network_off.64293e48bf",
+    "file": "launcher/launcher.cpp",
+    "line": 2464
+  },
+  {
+    "key": "launcher.your_lan_stays_reachable_for_the_multiplayer_.80cd5f3f8a",
+    "file": "launcher/launcher.cpp",
+    "line": 2465
+  },
+  {
+    "key": "launcher.active.630c2f1c0e",
+    "file": "launcher/launcher.cpp",
+    "line": 2469
+  },
+  {
+    "key": "launcher.disabled_easyanticheat_eos_exe_bak.569381eab4",
+    "file": "launcher/launcher.cpp",
+    "line": 2469
+  },
+  {
+    "key": "launcher.not_installed.e9363f76e1",
+    "file": "launcher/launcher.cpp",
+    "line": 2469
+  },
+  {
+    "key": "launcher.hosts_checked_by_sc_offline_sh_against_etc_ho.649a30612d",
+    "file": "launcher/launcher.cpp",
+    "line": 2470
+  },
+  {
+    "key": "launcher.eac_download_server_blocked.627d4acd12",
+    "file": "launcher/launcher.cpp",
+    "line": 2471
+  },
+  {
+    "key": "launcher.eac_download_server_not_blocked.f2eba34f9e",
+    "file": "launcher/launcher.cpp",
+    "line": 2471
+  },
+  {
+    "key": "launcher.i_easy_anti_cheat_is_on_play_turns_it_off_whi.fdd6f07a19",
+    "file": "launcher/launcher.cpp",
+    "line": 2475
+  },
+  {
+    "key": "launcher.easy_anti_cheat_is_active_the_mod_can_t_run_w.9d2aa59658",
+    "file": "launcher/launcher.cpp",
+    "line": 2477
+  },
+  {
+    "key": "launcher.i_add_127_0_0_1_modules_cdn_eac_prod_on_epicg.fa0668f57a",
+    "file": "launcher/launcher.cpp",
+    "line": 2479
+  },
+  {
+    "key": "launcher.play.436e61016e",
+    "file": "launcher/launcher.cpp",
+    "line": 2510
+  },
+  {
+    "key": "launcher.status.920e413c7d",
+    "file": "launcher/launcher.cpp",
+    "line": 2511
+  },
+  {
+    "key": "launcher.update.c1c1009d3f",
+    "file": "launcher/launcher.cpp",
+    "line": 2512
+  },
+  {
+    "key": "launcher.install.569ca49f4a",
+    "file": "launcher/launcher.cpp",
+    "line": 2513
+  },
+  {
+    "key": "launcher.uninstall.fe19952885",
+    "file": "launcher/launcher.cpp",
+    "line": 2514
+  },
+  {
+    "key": "launcher.the_mod_is_still_in_bin64.296f34ee27",
+    "file": "launcher/launcher.cpp",
+    "line": 2628
+  },
+  {
+    "key": "launcher.firewall_rule.f11066948b",
+    "file": "launcher/launcher.cpp",
+    "line": 2632
+  },
+  {
+    "key": "launcher.the_eac_line_in_the_hosts_file.26253581e4",
+    "file": "launcher/launcher.cpp",
+    "line": 2633
+  },
+  {
+    "key": "launcher.easyanticheat_eos_exe_renamed_to_bak.f5497dcb17",
+    "file": "launcher/launcher.cpp",
+    "line": 2634
+  },
+  {
+    "key": "launcher.not_safe_to_go_online.bb0ce86c9c",
+    "file": "launcher/launcher.cpp",
+    "line": 2639
+  },
+  {
+    "key": "launcher.star_citizen_is_running_when_it_closes_sc_off.a6cecc2217",
+    "file": "launcher/launcher.cpp",
+    "line": 2640
+  },
+  {
+    "key": "launcher.not_safe_to_go_online_yet.22d9a6e4ed",
+    "file": "launcher/launcher.cpp",
+    "line": 2642
+  },
+  {
+    "key": "launcher.click_uninstall_to_undo.ec1a3d31ea",
+    "file": "launcher/launcher.cpp",
+    "line": 2643
+  },
+  {
+    "key": "launcher.game_folder_not_known_yet.2194cfac95",
+    "file": "launcher/launcher.cpp",
+    "line": 2646
+  },
+  {
+    "key": "launcher.click_status_or_play_to_find_it_no_pc_changes.25e8bc6dd0",
+    "file": "launcher/launcher.cpp",
+    "line": 2647
+  },
+  {
+    "key": "launcher.safe_to_go_online.e4fae6fe7f",
+    "file": "launcher/launcher.cpp",
+    "line": 2649
+  },
+  {
+    "key": "launcher.the_mod_is_out_of_the_game_folder_and_no_pc_c.5810d652a3",
+    "file": "launcher/launcher.cpp",
+    "line": 2650
+  },
+  {
+    "key": "launcher.couldn_t_start_sc_offline_exe.2f04fd4477",
+    "file": "launcher/launcher.cpp",
+    "line": 2731
+  },
+  {
+    "key": "launcher.yes.85a39ab345",
+    "file": "launcher/launcher.cpp",
+    "line": 2974
+  },
+  {
+    "key": "launcher.none.dc937b5989",
+    "file": "launcher/launcher.cpp",
+    "line": 2975
+  },
+  {
+    "key": "launcher.show_playing_sc_offline_on_your_discord_profi.2f85fbaf9e",
+    "file": "launcher/launcher.cpp",
+    "line": 3043
+  },
+  {
+    "key": "launcher.logs_folder.9b1120c286",
+    "file": "launcher/launcher.cpp",
+    "line": 3053
+  },
+  {
+    "key": "launcher.settings.74a883a037",
+    "file": "launcher/launcher.cpp",
+    "line": 3053
+  },
+  {
+    "key": "launcher.launcher.22614ace1a",
+    "file": "launcher/launcher.cpp",
+    "line": 3082
+  },
+  {
+    "key": "launcher.status.920e413c7d",
+    "file": "launcher/launcher.cpp",
+    "line": 3093
+  },
+  {
+    "key": "launcher.actions.ff8059dc67",
+    "file": "launcher/launcher.cpp",
+    "line": 3108
+  },
+  {
+    "key": "launcher.yes.85a39ab345",
+    "file": "launcher/launcher.cpp",
+    "line": 3113
+  },
+  {
+    "key": "launcher.none.dc937b5989",
+    "file": "launcher/launcher.cpp",
+    "line": 3114
+  },
+  {
+    "key": "launcher.running.87de7163ff",
+    "file": "launcher/launcher.cpp",
+    "line": 3116
+  },
+  {
+    "key": "launcher.free_flight_profile.bf4ec49956",
+    "file": "launcher/launcher.cpp",
+    "line": 3124
+  },
+  {
+    "key": "launcher.launch_report.a42d0b6e41",
+    "file": "launcher/launcher.cpp",
+    "line": 3126
+  },
+  {
+    "key": "launcher.start_server.7b7da6f8ab",
+    "file": "launcher/launcher.cpp",
+    "line": 3127
+  },
+  {
+    "key": "launcher.stop_server.a21bf60530",
+    "file": "launcher/launcher.cpp",
+    "line": 3128
+  },
+  {
+    "key": "launcher.s.f684c73cba",
+    "file": "launcher/launcher.cpp",
+    "line": 3138
+  },
+  {
+    "key": "launcher.true_or_false.ed50d4017a",
+    "file": "launcher/launcher.cpp",
+    "line": 3260
+  },
+  {
+    "key": "launcher.a_whole_number.ef06b86bbf",
+    "file": "launcher/launcher.cpp",
+    "line": 3268
+  },
+  {
+    "key": "launcher.a_whole_number.ef06b86bbf",
+    "file": "launcher/launcher.cpp",
+    "line": 3271
+  },
+  {
+    "key": "launcher.at_least.547e5396b7",
+    "file": "launcher/launcher.cpp",
+    "line": 3275
+  },
+  {
+    "key": "launcher.at_most.73c8425f2c",
+    "file": "launcher/launcher.cpp",
+    "line": 3276
+  },
+  {
+    "key": "launcher.a_number_such_as_1_5.1dfdc7701d",
+    "file": "launcher/launcher.cpp",
+    "line": 3281
+  },
+  {
+    "key": "launcher.not_a_finite_number.56325710ec",
+    "file": "launcher/launcher.cpp",
+    "line": 3283
+  },
+  {
+    "key": "launcher.at_least.547e5396b7",
+    "file": "launcher/launcher.cpp",
+    "line": 3284
+  },
+  {
+    "key": "launcher.at_most.73c8425f2c",
+    "file": "launcher/launcher.cpp",
+    "line": 3285
+  },
+  {
+    "key": "launcher.at_most_255_characters.2973a7027a",
+    "file": "launcher/launcher.cpp",
+    "line": 3290
+  },
+  {
+    "key": "launcher.printable_ascii_only.4d14e9276e",
+    "file": "launcher/launcher.cpp",
+    "line": 3291
+  },
+  {
+    "key": "launcher.pick_one_of_the_choices.92010516cf",
+    "file": "launcher/launcher.cpp",
+    "line": 3296
+  },
+  {
+    "key": "launcher.one_of.8e88abb0cb",
+    "file": "launcher/launcher.cpp",
+    "line": 3303
+  },
+  {
+    "key": "launcher.min.0af7aaf428",
+    "file": "launcher/launcher.cpp",
+    "line": 3307
+  },
+  {
+    "key": "launcher.max.d7a4b72dd1",
+    "file": "launcher/launcher.cpp",
+    "line": 3308
+  },
+  {
+    "key": "launcher.couldn_t_open_data_storage.a89802a187",
+    "file": "launcher/launcher.cpp",
+    "line": 3478
+  },
+  {
+    "key": "launcher.couldn_t_write_the_values.dae2326f35",
+    "file": "launcher/launcher.cpp",
+    "line": 3494
+  },
+  {
+    "key": "launcher.plugins.9514b7ff48",
+    "file": "launcher/launcher.cpp",
+    "line": 3507
+  },
+  {
+    "key": "launcher.plugins.9514b7ff48",
+    "file": "launcher/launcher.cpp",
+    "line": 3510
+  },
+  {
+    "key": "launcher.open_the_plugins_folder.77e53cfa6d",
+    "file": "launcher/launcher.cpp",
+    "line": 3524
+  },
+  {
+    "key": "launcher.reload_plug.0b13c56a99",
+    "file": "launcher/launcher.cpp",
+    "line": 3532
+  },
+  {
+    "key": "launcher.hot_reload_runs_in_the_game_use_the_sco_reloa.08137542b0",
+    "file": "launcher/launcher.cpp",
+    "line": 3533
+  },
+  {
+    "key": "launcher.plugins_reload_inside_the_running_game_sco_re.c43dd44e3c",
+    "file": "launcher/launcher.cpp",
+    "line": 3534
+  },
+  {
+    "key": "launcher.search.49c266baaa",
+    "file": "launcher/launcher.cpp",
+    "line": 3546
+  },
+  {
+    "key": "launcher.plugins_are_off_plugins_off_in_sc_offline_ini.c90fbf0304",
+    "file": "launcher/launcher.cpp",
+    "line": 3571
+  },
+  {
+    "key": "launcher.turn_on_plugson.fadd490462",
+    "file": "launcher/launcher.cpp",
+    "line": 3572
+  },
+  {
+    "key": "launcher.no_plugins_yet.f08abb9c56",
+    "file": "launcher/launcher.cpp",
+    "line": 3580
+  },
+  {
+    "key": "launcher.no_matches.2df01a03ff",
+    "file": "launcher/launcher.cpp",
+    "line": 3580
+  },
+  {
+    "key": "launcher.open_folder_plugempty.71bb76655f",
+    "file": "launcher/launcher.cpp",
+    "line": 3586
+  },
+  {
+    "key": "launcher.the_game_picks_this_up_at_its_next_start.ba53fc3f83",
+    "file": "launcher/launcher.cpp",
+    "line": 3606
+  },
+  {
+    "key": "launcher.couldn_t_change_data_plugins.567be3c257",
+    "file": "launcher/launcher.cpp",
+    "line": 3608
+  },
+  {
+    "key": "launcher.disabled_is_the_folder_read_only.b838d0c3c4",
+    "file": "launcher/launcher.cpp",
+    "line": 3608
+  },
+  {
+    "key": "launcher.plugin.6d6b09dfa8",
+    "file": "launcher/launcher.cpp",
+    "line": 3614
+  },
+  {
+    "key": "launcher.settings.74a883a037",
+    "file": "launcher/launcher.cpp",
+    "line": 3636
+  },
+  {
+    "key": "launcher.settings.8ab5fcaa02",
+    "file": "launcher/launcher.cpp",
+    "line": 3648
+  },
+  {
+    "key": "launcher.back_plugback.c2c2690bbf",
+    "file": "launcher/launcher.cpp",
+    "line": 3650
+  },
+  {
+    "key": "launcher.plugin_ini_has_a_settings_line_this_launcher_.57bb18d606",
+    "file": "launcher/launcher.cpp",
+    "line": 3657
+  },
+  {
+    "key": "launcher.run_sco_plugin_check_on_the_folder.30c0386bde",
+    "file": "launcher/launcher.cpp",
+    "line": 3658
+  },
+  {
+    "key": "launcher.save_plugsave.fa00174dc1",
+    "file": "launcher/launcher.cpp",
+    "line": 3724
+  },
+  {
+    "key": "launcher.saved_applies_at_the_next_game_start.264224fa19",
+    "file": "launcher/launcher.cpp",
+    "line": 3725
+  },
+  {
+    "key": "launcher.reset_plugreset.c4f1bdfb43",
+    "file": "launcher/launcher.cpp",
+    "line": 3730
+  },
+  {
+    "key": "launcher.back_to_the_defaults_applies_at_the_next_game.2a2a41a0df",
+    "file": "launcher/launcher.cpp",
+    "line": 3731
+  },
+  {
+    "key": "launcher.close_the_game_to_edit.db2e33ffc4",
+    "file": "launcher/launcher.cpp",
+    "line": 3737
+  },
+  {
+    "key": "launcher.applies_at_the_next_game_start.7fa090589b",
+    "file": "launcher/launcher.cpp",
+    "line": 3737
+  },
+  {
+    "key": "launcher.output.b2439bcb8d",
+    "file": "launcher/launcher.cpp",
+    "line": 3756
+  },
+  {
+    "key": "launcher.copy.e21f935f11",
+    "file": "launcher/launcher.cpp",
+    "line": 3758
+  },
+  {
+    "key": "launcher.plugins_are_on_they_load_the_next_time_the_ga.06a0e8778b",
+    "file": "launcher/launcher.cpp",
+    "line": 3935
+  },
+  {
+    "key": "launcher.couldn_t_write_sc_offline_ini_set_plugins_on_.25f2489e07",
+    "file": "launcher/launcher.cpp",
+    "line": 3937
+  },
+  {
+    "key": "launcher.discord_status_on_your_profile_shows_playing_.fd92e8185a",
+    "file": "launcher/launcher.cpp",
+    "line": 3944
+  },
+  {
+    "key": "launcher.discord_status_off_from_the_next_play_nothing.a2dd54127c",
+    "file": "launcher/launcher.cpp",
+    "line": 3945
+  },
+  {
+    "key": "launcher.couldn_t_change_data_plugins_discord_disabled.64fb736af8",
+    "file": "launcher/launcher.cpp",
+    "line": 3947
+  },
+  {
+    "key": "launcher.done.034894c796",
+    "file": "launcher/launcher.cpp",
+    "line": 4012
+  },
+  {
+    "key": "launcher.finished_with_exit_code.294770a0d1",
+    "file": "launcher/launcher.cpp",
+    "line": 4012
+  },
+  {
+    "key": "launcher.see_above.2956c2317e",
+    "file": "launcher/launcher.cpp",
+    "line": 4012
+  },
+  {
+    "key": "launcher.a_command_is_still_running_if_you_close_this_.d05071a780",
+    "file": "launcher/launcher.cpp",
+    "line": 4018
+  },
+  {
+    "key": "launcher.usage_sc_offline_exe_command_game_folder_dry_.d86d37d63e",
+    "file": "launcher/launcher.cpp",
+    "line": 4178
+  },
+  {
+    "key": "launcher.game_needs_a_folder_sc_offline_exe_game_d_gam.25c31fefc7",
+    "file": "launcher/launcher.cpp",
+    "line": 4235
+  },
+  {
+    "key": "launcher.unknown_argument_ls.a4490f05d6",
+    "file": "launcher/launcher.cpp",
+    "line": 4247
+  },
+  {
+    "key": "launcher.sc_offline_launcher_s_s_s.e8eb64e741",
+    "file": "launcher/launcher.cpp",
+    "line": 4251
+  },
+  {
+    "key": "launcher.sc_offline_launcher_s_s.5827bc0e4a",
+    "file": "launcher/launcher.cpp",
+    "line": 4259
+  },
+  {
+    "key": "launcher.dry_run_nothing_is_changed.e4a8d036ce",
+    "file": "launcher/launcher.cpp",
+    "line": 4259
+  },
+  {
+    "key": "launcher.dry_run_server_management_is_skipped.68f550e850",
+    "file": "launcher/launcher.cpp",
+    "line": 4262
+  },
+  {
+    "key": "launcher.this_folder_ls_can_t_be_written_without_admin.034f134785",
+    "file": "launcher/launcher.cpp",
+    "line": 4267
+  },
+  {
+    "key": "launcher.i_no_sc_offline_ini_next_to_this_exe_using_de.8394aac9a2",
+    "file": "launcher/launcher.cpp",
+    "line": 4270
+  },
+  {
+    "key": "launcher.up_to_date.bef6a4bb30",
+    "file": "launcher/launcher.cpp",
+    "line": 4282
+  },
+  {
+    "key": "launcher.update_sc_offline_s_is_available_you_have_s.a4ad2432d8",
+    "file": "launcher/launcher.cpp",
+    "line": 4284
+  },
+  {
+    "key": "launcher.local_changes_must_be_migrated_before_updatin.c242076fdc",
+    "file": "launcher/launcher.cpp",
+    "line": 4285
+  },
+  {
+    "key": "launcher.no_ls_under_game_ls_channel_ls.bfca94ac5a",
+    "file": "launcher/launcher.cpp",
+    "line": 4295
+  },
+  {
+    "key": "launcher.no_ls_under_game_ls_in_sc_offline_ini_channel.dad9e48b4d",
+    "file": "launcher/launcher.cpp",
+    "line": 4298
+  },
+  {
+    "key": "launcher.i_found_the_game_s.8d66b9b0cf",
+    "file": "launcher/launcher.cpp",
+    "line": 4303
+  },
+  {
+    "key": "launcher.i_also_found_ls_set_game_in_sc_offline_ini_to.2494d7e73f",
+    "file": "launcher/launcher.cpp",
+    "line": 4305
+  },
+  {
+    "key": "launcher.i_couldn_t_find_star_citizen_ls_by_itself_pic.ac7ef991b3",
+    "file": "launcher/launcher.cpp",
+    "line": 4307
+  },
+  {
+    "key": "launcher.no_ls_under_ls_channel_ls_open_sc_offline_ini.b8bf19882f",
+    "file": "launcher/launcher.cpp",
+    "line": 4312
+  },
+  {
+    "key": "launcher.couldn_t_find_star_citizen_ls_open_sc_offline.ea53d7610b",
+    "file": "launcher/launcher.cpp",
+    "line": 4315
+  },
+  {
+    "key": "launcher.folder_ls.6d1e51ef7e",
+    "file": "launcher/launcher.cpp",
+    "line": 4320
+  },
+  {
+    "key": "launcher.ls_is_running_close_it_first.11a9b5132d",
+    "file": "launcher/launcher.cpp",
+    "line": 4334
+  },
+  {
+    "key": "launcher.dinput8_dll_is_missing_next_to_sc_offline_exe.bcaa271373",
+    "file": "launcher/launcher.cpp",
+    "line": 4338
+  },
+  {
+    "key": "launcher.ls_is_already_running_close_it_first.1d3b3c2e11",
+    "file": "launcher/launcher.cpp",
+    "line": 4339
+  },
+  {
+    "key": "launcher.undo_them_now_and_stop_instead_of_playing.cc94b9f40d",
+    "file": "launcher/launcher.cpp",
+    "line": 4341
+  },
+  {
+    "key": "launcher.i_undoing_them_same_as_sc_offline_exe_uninsta.36f671ffe8",
+    "file": "launcher/launcher.cpp",
+    "line": 4341
+  },
+  {
+    "key": "launcher.i_playing_they_are_undone_together_with_this_.75a24f5062",
+    "file": "launcher/launcher.cpp",
+    "line": 4342
+  },
+  {
+    "key": "launcher.stopped_easy_anti_cheat_is_active_see_above_s.5854d9efa8",
+    "file": "launcher/launcher.cpp",
+    "line": 4346
+  },
+  {
+    "key": "launcher.dry_run_after_the_game_closes_take_the_mod_ou.89e69d711f",
+    "file": "launcher/launcher.cpp",
+    "line": 4384
+  },
+  {
+    "key": "launcher.dry_run_then_list_this_session_s_game_log_log.0ef57f5d48",
+    "file": "launcher/launcher.cpp",
+    "line": 4385
+  },
+  {
+    "key": "launcher.game_launch_will_continue_without_the_local_s.5f040193f7",
+    "file": "launcher/launcher.cpp",
+    "line": 4390
+  },
+  {
+    "key": "launcher.couldn_t_start_the_mod_helper_error_lu_admini.910a748dcd",
+    "file": "launcher/launcher.cpp",
+    "line": 4395
+  },
+  {
+    "key": "launcher.the_helper_failed_exit_lu_see_data_launcher_l.115b6d9fc3",
+    "file": "launcher/launcher.cpp",
+    "line": 4401
+  },
+  {
+    "key": "launcher.mod_installed_start_the_game_your_usual_way_r.bfa696d186",
+    "file": "launcher/launcher.cpp",
+    "line": 4403
+  },
+  {
+    "key": "launcher.mod_removed.5899cb0c48",
+    "file": "launcher/launcher.cpp",
+    "line": 4404
+  },
+  {
+    "key": "launcher.couldn_t_copy_the_mod_into_ls_helper_exit_lu_.414af7204e",
+    "file": "launcher/launcher.cpp",
+    "line": 4413
+  },
+  {
+    "key": "launcher.mod_copied_into_bin64.9c687f932c",
+    "file": "launcher/launcher.cpp",
+    "line": 4416
+  },
+  {
+    "key": "launcher.pc_s_s_s_undone_when_the_game_closes.887a28f240",
+    "file": "launcher/launcher.cpp",
+    "line": 4418
+  },
+  {
+    "key": "launcher.game_rsi_launcher_and_crashhandler_network_bl.2addbda4d5",
+    "file": "launcher/launcher.cpp",
+    "line": 4418
+  },
+  {
+    "key": "launcher.eac_hosts_line.6c4fece60b",
+    "file": "launcher/launcher.cpp",
+    "line": 4419
+  },
+  {
+    "key": "launcher.eac_renamed.dcf891fd99",
+    "file": "launcher/launcher.cpp",
+    "line": 4419
+  },
+  {
+    "key": "launcher.couldn_t_start_ls_error_lu.556cabe784",
+    "file": "launcher/launcher.cpp",
+    "line": 4432
+  },
+  {
+    "key": "launcher.playing_when_the_game_closes_the_mod_is_remov.b50abe5bae",
+    "file": "launcher/launcher.cpp",
+    "line": 4440
+  },
+  {
+    "key": "launcher.logs_not_asking_no_console_to_answer_in_run_f.233c7333bf",
+    "file": "launcher/launcher.cpp",
+    "line": 4456
+  },
+  {
+    "key": "launcher.mod_the_helper_removes_it_from_bin64_and_undo.fc38a85ff9",
+    "file": "launcher/launcher.cpp",
+    "line": 4459
+  },
+  {
+    "key": "launcher.sc_offline_launch_report_exploration_1_game_v.cf78bb3464",
+    "file": "launcher/exploration_launcher.h",
+    "line": 14
+  },
+  {
+    "key": "launcher.process_exit_code.ff31977a75",
+    "file": "launcher/exploration_launcher.h",
+    "line": 14
+  },
+  {
+    "key": "launcher.the_report_records_mod_messages_feature_avail.a5267e311e",
+    "file": "launcher/exploration_launcher.h",
+    "line": 15
+  },
+  {
+    "key": "launcher.no_fresh_mod_log_found_an_old_log_was_not_use.98a2a0f615",
+    "file": "launcher/exploration_launcher.h",
+    "line": 24
+  },
+  {
+    "key": "launcher.feature_availability_text.52b4b7f20f",
+    "file": "launcher/exploration_launcher.h",
+    "line": 25
+  },
+  {
+    "key": "launcher.no_feature_report_for_this_session_the_charac.4c88f2eea7",
+    "file": "launcher/exploration_launcher.h",
+    "line": 27
+  },
+  {
+    "key": "launcher.game_crash_text.83db85f913",
+    "file": "launcher/exploration_launcher.h",
+    "line": 28
+  },
+  {
+    "key": "launcher.no_exception_markers_found_this_does_not_guar.0809a00bb0",
+    "file": "launcher/exploration_launcher.h",
+    "line": 35
+  },
+  {
+    "key": "launcher.no_fresh_game_log_found.bf8dddb74b",
+    "file": "launcher/exploration_launcher.h",
+    "line": 36
+  },
+  {
+    "key": "launcher.i_launch_report_ls_report_ru_md.ebc8b36a11",
+    "file": "launcher/exploration_launcher.h",
+    "line": 40
+  },
+  {
+    "key": "launcher.could_not_write_the_launch_report.3223978454",
+    "file": "launcher/exploration_launcher.h",
+    "line": 41
+  },
+  {
+    "key": "launcher.the_report_will_appear_after_the_next_game_la.e68165fe55",
+    "file": "launcher/exploration_launcher.h",
+    "line": 46
+  },
+  {
+    "key": "launcher.spawn_ship_available.814ce04800",
+    "file": "launcher/exploration_launcher.h",
+    "line": 53
+  },
+  {
+    "key": "launcher.aboard_a_ship.2930592317",
+    "file": "launcher/exploration_launcher.h",
+    "line": 99
+  },
+  {
+    "key": "launcher.ships_found.1372fb3d90",
+    "file": "launcher/exploration_launcher.h",
+    "line": 181
+  },
+  {
+    "key": "launcher.no_matches_change_or_clear_the_search.af209e7303",
+    "file": "launcher/exploration_launcher.h",
+    "line": 181
+  },
+  {
+    "key": "launcher.flight_start_search_by_part_of_the_name.2f4c8c744c",
+    "file": "launcher/exploration_launcher.h",
+    "line": 207
+  },
+  {
+    "key": "launcher.normal_spawn_location.5d038e2fd0",
+    "file": "launcher/exploration_launcher.h",
+    "line": 209
+  },
+  {
+    "key": "launcher.above_daymar_aboard_the_selected_ship.b8783dd702",
+    "file": "launcher/exploration_launcher.h",
+    "line": 209
+  },
+  {
+    "key": "launcher.continue_saved_session.e1101b310b",
+    "file": "launcher/exploration_launcher.h",
+    "line": 209
+  },
+  {
+    "key": "launcher.starting_ship_at_the_selected_destination.d8a198ff75",
+    "file": "launcher/exploration_launcher.h",
+    "line": 225
+  },
+  {
+    "key": "launcher.search_by_part_of_the_name_type_and_select_a_.350f82338c",
+    "file": "launcher/exploration_launcher.h",
+    "line": 242
+  },
+  {
+    "key": "launcher.autosave_once_a_minute.217f6435ad",
+    "file": "launcher/exploration_launcher.h",
+    "line": 243
+  },
+  {
+    "key": "launcher.continue_uses_the_saved_location_and_ship_cla.c564f5e695",
+    "file": "launcher/exploration_launcher.h",
+    "line": 245
+  },
+  {
+    "key": "launcher.save_profile.0c8209e72e",
+    "file": "launcher/exploration_launcher.h",
+    "line": 246
+  },
+  {
+    "key": "launcher.cancel.19766ed6cc",
+    "file": "launcher/exploration_launcher.h",
+    "line": 247
+  },
+  {
+    "key": "launcher.mod_menu_name.500cd2c70f",
+    "file": "launcher/exploration_launcher.h",
+    "line": 250
+  },
+  {
+    "key": "launcher.save_name.b7297226fd",
+    "file": "launcher/exploration_launcher.h",
+    "line": 253
+  },
+  {
+    "key": "launcher.language.ui",
+    "file": "launcher/exploration_launcher.h",
+    "line": 254
+  },
+  {
+    "key": "launcher.language.auto",
+    "file": "launcher/exploration_launcher.h",
+    "line": 257
+  },
+  {
+    "key": "launcher.language.game",
+    "file": "launcher/exploration_launcher.h",
+    "line": 264
+  },
+  {
+    "key": "launcher.language.auto",
+    "file": "launcher/exploration_launcher.h",
+    "line": 266
+  },
+  {
+    "key": "launcher.language.save",
+    "file": "launcher/exploration_launcher.h",
+    "line": 270
+  },
+  {
+    "key": "launcher.language.catalog_hint",
+    "file": "launcher/exploration_launcher.h",
+    "line": 271
+  },
+  {
+    "key": "launcher.language.restart",
+    "file": "launcher/exploration_launcher.h",
+    "line": 283
+  },
+  {
+    "key": "launcher.language.failed",
+    "file": "launcher/exploration_launcher.h",
+    "line": 283
+  },
+  {
+    "key": "launcher.language.ui",
+    "file": "launcher/exploration_launcher.h",
+    "line": 283
+  },
+  {
+    "key": "launcher.enter_a_name_without_control_characters.12960e0910",
+    "file": "launcher/exploration_launcher.h",
+    "line": 287
+  },
+  {
+    "key": "launcher.player_name.8a6f25d4bf",
+    "file": "launcher/exploration_launcher.h",
+    "line": 287
+  },
+  {
+    "key": "launcher.could_not_save_the_name.9f9ecb8283",
+    "file": "launcher/exploration_launcher.h",
+    "line": 289
+  },
+  {
+    "key": "launcher.player_name.8a6f25d4bf",
+    "file": "launcher/exploration_launcher.h",
+    "line": 289
+  },
+  {
+    "key": "launcher.mod_menu_name_saved_applies_on_the_next_game_.0bd414015b",
+    "file": "launcher/exploration_launcher.h",
+    "line": 291
+  },
+  {
+    "key": "launcher.the_field_still_contains_a_search_query_selec.4e45c27606",
+    "file": "launcher/exploration_launcher.h",
+    "line": 309
+  },
+  {
+    "key": "launcher.flight_profile.8afb7c386b",
+    "file": "launcher/exploration_launcher.h",
+    "line": 309
+  },
+  {
+    "key": "launcher.select_a_ship_from_the_list.b890354997",
+    "file": "launcher/exploration_launcher.h",
+    "line": 312
+  },
+  {
+    "key": "launcher.flight_profile.8afb7c386b",
+    "file": "launcher/exploration_launcher.h",
+    "line": 312
+  },
+  {
+    "key": "launcher.select_a_full_destination_from_the_list_searc.721ec47ae9",
+    "file": "launcher/exploration_launcher.h",
+    "line": 314
+  },
+  {
+    "key": "launcher.flight_start.44dbed21a1",
+    "file": "launcher/exploration_launcher.h",
+    "line": 314
+  },
+  {
+    "key": "launcher.could_not_save_the_profile_check_access_to_sc.70b18ce0bc",
+    "file": "launcher/exploration_launcher.h",
+    "line": 322
+  },
+  {
+    "key": "launcher.flight_profile.8afb7c386b",
+    "file": "launcher/exploration_launcher.h",
+    "line": 322
+  },
+  {
+    "key": "launcher.flight_profile_saved_press_play_to_start.3fe5a27d1d",
+    "file": "launcher/exploration_launcher.h",
+    "line": 323
+  },
+  {
+    "key": "launcher.free_flight_profile.bf4ec49956",
+    "file": "launcher/exploration_launcher.h",
+    "line": 335
+  }
+]

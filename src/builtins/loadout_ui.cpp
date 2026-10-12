@@ -10,8 +10,10 @@
 #include "../build.h"
 #include "../cvars.h"
 #include "../spawner.h"
+#include "../common.h"
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 static const sco_api* g_api = nullptr;
 static sco_plugin*    g_self = nullptr;
@@ -19,11 +21,12 @@ static sco_plugin*    g_self = nullptr;
 void RegisterPlayerTab(const sco_api* api, sco_plugin* self) {
     g_api = api;
     g_self = self;
-    RegisterBuiltinTab(api, self, "loadout.player", "Player", kTabPlayer, DrawPlayerTab);
+    RegisterBuiltinTab(api, self, "loadout.player", "Игрок", kTabPlayer, DrawPlayerTab);
 }
 
 // The command's reply in the status strip (which also logs it). A refusal puts the checkbox back; a
-// missing command means the creative plugin isn't loaded.
+// missing command means the creative plugin isn't loaded. SCO_FAILED (the command ran and failed)
+// shows the command's own reply; SCO_UNAVAILABLE means the capability isn't on this build.
 static void CreativeReply(sco_result r, const char* reply, void* ctx) {
     if (r == SCO_OK) {
         SetMenuStatus("%s", reply ? reply : "");
@@ -32,6 +35,7 @@ static void CreativeReply(sco_result r, const char* reply, void* ctx) {
     if (ctx) *static_cast<bool*>(ctx) = !*static_cast<bool*>(ctx);
     if (reply && reply[0]) SetMenuStatus("%s", reply);
     else if (r == SCO_NOT_FOUND) SetMenuStatus("Needs the creative plugin: turn it on in the launcher's Plugins page.");
+    else if (r == SCO_UNAVAILABLE) SetMenuStatus("Not available on this game build.");
     else SetMenuStatus("The creative plugin refused (result %d).", static_cast<int>(r));
 }
 
@@ -54,106 +58,126 @@ void InvokeCreativeSpeed(float metresPerSecond) {
 static void GearCombo(int slot, const char* label, const char* none, int& pick, const char* filter, float width) {
     const int n = Menu_GearCount(slot);
     if (pick >= n) pick = -1;
-    char preview[112], id[32];
-    snprintf(preview, sizeof(preview), "%s: %s", label, pick >= 0 ? Menu_GearName(slot, pick) : none);
-    snprintf(id, sizeof(id), "##gear%d", slot);
+    static char filters[Gear_SlotCount][128]{};
+    const std::string preview=std::string(label)+": "+(pick>=0?ReadableListName(Menu_GearName(slot,pick)):none);
+    char id[32]; snprintf(id,sizeof(id),"##gear%d",slot);
     ImGui::SetNextItemWidth(width);
-    if (!ImGui::BeginCombo(id, preview, ImGuiComboFlags_HeightLarge)) return;
+    if (!ImGui::BeginCombo(id, preview.c_str(), ImGuiComboFlags_HeightLarge)) return;
+    ImGui::PushID(slot);
+    if(ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+    SearchBox("##search", "Название или часть названия…",filters[slot],sizeof(filters[slot]));
     if (ImGui::Selectable(none, pick < 0)) pick = -1;
-    for (int i = 0; i < n; ++i) {
-        const char* name = Menu_GearName(slot, i);
-        if (!MatchesFilter(name, filter)) continue;
-        ImGui::PushID(i);
-        if (ImGui::Selectable(name, i == pick)) pick = i;
-        if (i == pick) ImGui::SetItemDefaultFocus();
+    int shown=0;
+    for (int i=0;i<n;++i) {
+        const char* name=Menu_GearName(slot,i);
+        const char* display=ReadableListName(name);
+        if(!ListMatchesFilter(name,display,filter) || !ListMatchesFilter(name,display,filters[slot])) continue;
+        ++shown; ImGui::PushID(i);
+        if(ImGui::Selectable(display,i==pick)) pick=i;
+        ImGui::SetItemTooltip("Класс: %s",name);
         ImGui::PopID();
     }
+    if(!shown) Hint("Совпадений нет. Очистите поиск в списке или общий поиск.");
+    ImGui::TextDisabled("Найдено: %d / %d",shown,n);
+    ImGui::PopID();
     ImGui::EndCombo();
 }
 
 void DrawPlayerTab(void*, void*) {
-    SectionHeading("Movement");
+    static const std::string profileName = [] {
+        char path[MAX_PATH]={};wchar_t widePath[MAX_PATH]={},name[49]={};char utf8[196]={};
+        if(DataFilePath(path,MAX_PATH,"player-profile.ini")) {
+            MultiByteToWideChar(CP_ACP,0,path,-1,widePath,MAX_PATH);
+            GetPrivateProfileStringW(L"player",L"display_name",L"default_1",name,49,
+                widePath);
+            WideCharToMultiByte(CP_UTF8,0,name,-1,utf8,sizeof(utf8),nullptr,nullptr);
+        }
+        return std::string(utf8[0]?utf8:"default_1");
+    }();
+    SectionHeading("Локальный профиль");
+    ImGui::Text("Игрок: %s",profileName.c_str());
+    SectionHeading("Движение");
     static bool  noclip = false;
     static float speed = 30.0f;
-    if (ImGui::Checkbox("Noclip", &noclip)) {
+    if (ImGui::Checkbox("Полёт сквозь объекты", &noclip)) {
         InvokeCreativeSpeed(speed);
         InvokeCreativeToggle("creative.noclip", noclip, &noclip);
     }
     ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
-    if (ImGui::SliderFloat("##noclipSpeed", &speed, 1.0f, 500.0f, "Speed %.0f", ImGuiSliderFlags_Logarithmic))
+    if (ImGui::SliderFloat("##noclipSpeed", &speed, 1.0f, 500.0f, "Скорость %.0f", ImGuiSliderFlags_Logarithmic))
         InvokeCreativeSpeed(speed);
-    Hint("F7 saves where you're standing and F8 takes you back. The Travel tab has named spots and places.");
+    Hint("F7 сохраняет позицию, F8 возвращает к ней. На вкладке «Перемещение» есть места и сохранённые точки.");
 
-    SectionHeading("Protection");
+    SectionHeading("Защита");
     static bool god = false, ammo = false;
-    if (ImGui::Checkbox("God mode", &god)) InvokeCreativeToggle("creative.god", god, &god);
+    if (ImGui::Checkbox("Неуязвимость", &god)) InvokeCreativeToggle("creative.god", god, &god);
     ImGui::SameLine(0, 24);
-    if (ImGui::Checkbox("Infinite ammo", &ammo)) InvokeCreativeToggle("creative.ammo", ammo, &ammo);
-    Hint("Noclip, god mode and infinite ammo come from the creative plugin. Turn it on in the launcher's Plugins page.");
+    if (ImGui::Checkbox("Бесконечные боеприпасы", &ammo)) InvokeCreativeToggle("creative.ammo", ammo, &ammo);
+    Hint("Полёт сквозь объекты, неуязвимость и боеприпасы доступны через плагин creative. Включите его на странице плагинов лаунчера.");
 
-    SectionHeading("Gear");
+    SectionHeading("Снаряжение");
     static int  gear[Gear_SlotCount] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
     static char gearFilter[64] = "";
     static const struct { const char* label; const char* none; } kGear[Gear_SlotCount] = {
-        { "Undersuit", "Default" }, { "Helmet", "None" }, { "Body", "None" }, { "Arms", "None" }, { "Legs", "None" },
-        { "Backpack", "None" }, { "Primary", "None" }, { "Sidearm", "None" }, { "Ammo", "Matches weapon" }, { "Grenades", "None" } };
-    if (Menu_GearCount(0) < 0) { Hint("Loading gear (you need to be in the universe)..."); return; }
-    SearchBox("##gearFilter", "Search gear", gearFilter, sizeof(gearFilter));
+        { "Поддоспешник", "По умолчанию" }, { "Шлем", "Нет" }, { "Корпус", "Нет" }, { "Руки", "Нет" }, { "Ноги", "Нет" },
+        { "Рюкзак", "Нет" }, { "Основное оружие", "Нет" }, { "Пистолет", "Нет" }, { "Боеприпасы", "Для выбранного оружия" }, { "Гранаты", "Нет" } };
+    if (Menu_GearCount(0) < 0) { Hint("Загрузка снаряжения — сначала войдите в игровой мир…"); return; }
+    SearchBox("##gearFilter", "Поиск снаряжения", gearFilter, sizeof(gearFilter));
     const float half = Columns(2);
     for (int s = 0; s < Gear_SlotCount; ++s) {
         if (s % 2) ImGui::SameLine();
         GearCombo(s, kGear[s].label, kGear[s].none, gear[s], gearFilter, half);
     }
-    if (PrimaryButton("Equip gear")) { Menu_RequestEquip(gear); MenuClose(); }
+    if (PrimaryButton("Надеть снаряжение")) { Menu_RequestEquip(gear); MenuClose(); }
 }
 
 void DrawSq42Tab(void*, void*) {
     static bool spoilerOk = false;
     if (!spoilerOk) {
-        ImGui::SeparatorText("Spoiler warning");
-        ImGui::TextWrapped("This tab could have Squadron 42 spoilers.");
-        ImGui::TextWrapped("Press OK to continue.");
+        ImGui::SeparatorText("Предупреждение о спойлерах");
+        ImGui::TextWrapped("Эта вкладка может содержать спойлеры Squadron 42.");
+        ImGui::TextWrapped("Нажмите ОК, чтобы продолжить.");
         if (ImGui::Button("OK", ImVec2(120, 0))) spoilerOk = true;
         ImGui::SameLine();
-        if (ImGui::Button("Back", ImVec2(120, 0))) MenuSelectFirstTab();
+        if (ImGui::Button("Назад", ImVec2(120, 0))) MenuSelectFirstTab();
         return;
     }
 
-    ImGui::SeparatorText("Outfits");
+    ImGui::SeparatorText("Комплекты одежды");
     const int outfits = Menu_OutfitCount();
     static int outfit = 0;
     if (outfits < 0) {
-        ImGui::TextWrapped("Loading outfits... (you need to be spawned in the universe)");
+        ImGui::TextWrapped("Загрузка комплектов одежды — сначала появитесь в игровом мире…");
     } else if (outfits == 0) {
-        ImGui::TextWrapped("No outfits found - check outfits.txt.");
+        ImGui::TextWrapped("Комплекты одежды не найдены. Проверьте outfits.txt.");
     } else {
         static char filter[64] = "";
         if (outfit >= outfits) outfit = 0;
         ImGui::SetNextItemWidth(-1);
-        ImGui::InputTextWithHint("##outfitFilter", "search outfits...", filter, sizeof(filter));
+        ImGui::InputTextWithHint("##outfitFilter", "Поиск комплектов одежды…", filter, sizeof(filter));
         ImGui::SetNextItemWidth(-1);
-        if (ImGui::BeginCombo("##outfit", Menu_OutfitName(outfit), ImGuiComboFlags_HeightLargest)) {
+        if (ImGui::BeginCombo("##outfit", ReadableListName(Menu_OutfitName(outfit)), ImGuiComboFlags_HeightLargest)) {
             for (int i = 0; i < outfits; ++i) {
                 const char* name = Menu_OutfitName(i);
-                if (!MatchesFilter(name, filter)) continue;
+                if (!ListMatchesFilter(name, ReadableListName(name), filter)) continue;
                 ImGui::PushID(i);
-                if (ImGui::Selectable(name, i == outfit)) outfit = i;
-                if (i == outfit) ImGui::SetItemDefaultFocus();
+                if (ImGui::Selectable(ReadableListName(name), i == outfit)) outfit = i;
+                ImGui::SetItemTooltip("%s",name);
                 ImGui::PopID();
             }
             ImGui::EndCombo();
         }
-        if (ImGui::Button("Wear SQ42 outfit", ImVec2(-1, 0))) {
+        if (ImGui::Button("Надеть комплект SQ42", ImVec2(-1, 0))) {
             Menu_RequestWearOutfit(outfit);
             MenuClose();
         }
     }
     static bool visor = false;
-    if (ImGui::Checkbox("SQ42 visor HUD (applies on the next Equip or outfit)", &visor))
+    if (ImGui::Checkbox("Интерфейс шлема SQ42 (после смены снаряжения)", &visor))
         Menu_SetS42VisorHud(visor);
 
-    ImGui::SeparatorText("Settings");
+    ImGui::SeparatorText("Настройки");
     for (int i = 0; i < Menu_S42SettingCount(); ++i) {
         bool on = Menu_S42SettingOn(i);
         ImGui::PushID(i);
@@ -162,11 +186,11 @@ void DrawSq42Tab(void*, void*) {
         if (ImGui::Checkbox(Menu_S42SettingLabel(i), &on)) Menu_RequestS42Setting(i, on);
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("%s", known ? Menu_S42SettingTip(i) : "Reading this setting from the game...");
+            ImGui::SetTooltip("%s", known ? Menu_S42SettingTip(i) : "Чтение настройки из игры…");
         ImGui::PopID();
     }
 
-    ImGui::SeparatorText("Spawn");
+    ImGui::SeparatorText("Создать");
     {
         static int   thing = -1;
         static char  thingFilter[64] = "";
@@ -174,9 +198,9 @@ void DrawSq42Tab(void*, void*) {
         static float ahead = 8.0f;
         const int buildables = Menu_BuildCount();
         if (buildables < 0) {
-            ImGui::TextWrapped("Loading... (you need to be spawned in the universe)");
+            ImGui::TextWrapped("Загрузка — сначала появитесь в игровом мире…");
         } else if (buildables == 0) {
-            ImGui::TextWrapped("No buildables found - check buildables.txt.");
+            ImGui::TextWrapped("Объекты не найдены. Проверьте buildables.txt.");
         } else {
             if (thing < 0) {
                 thing = 0;
@@ -184,48 +208,48 @@ void DrawSq42Tab(void*, void*) {
                     if (_stricmp(Menu_BuildCategory(i), "sq42") == 0) { thing = i; break; }
             }
             if (thing >= buildables) thing = 0;
-            ImGui::Checkbox("Spawn in front of you", &inFront);
+            ImGui::Checkbox("Создать перед вами", &inFront);
             ImGui::SetNextItemWidth(-1);
-            ImGui::InputTextWithHint("##thingFilter", "search the [sq42] group...", thingFilter, sizeof(thingFilter));
+            ImGui::InputTextWithHint("##thingFilter", "Поиск в группе [sq42]…", thingFilter, sizeof(thingFilter));
             ImGui::SetNextItemWidth(-1);
-            if (ImGui::BeginCombo("##sq42thing", Menu_BuildName(thing), ImGuiComboFlags_HeightLargest)) {
+            if (ImGui::BeginCombo("##sq42thing", ReadableListName(Menu_BuildName(thing)), ImGuiComboFlags_HeightLargest)) {
                 for (int i = 0; i < buildables; ++i) {
                     // Only the [sq42] group, like the original; the text filter narrows it further.
                     if (_stricmp(Menu_BuildCategory(i), "sq42") != 0) continue;
                     const char* name = Menu_BuildName(i);
-                    if (!MatchesFilter(name, thingFilter)) continue;
+                    if (!ListMatchesFilter(name, ReadableListName(name), thingFilter)) continue;
                     ImGui::PushID(i);
-                    if (ImGui::Selectable(name, i == thing)) thing = i;
-                    if (i == thing) ImGui::SetItemDefaultFocus();
+                    if (ImGui::Selectable(ReadableListName(name), i == thing)) thing = i;
+                    ImGui::SetItemTooltip("%s",name);
                     ImGui::PopID();
                 }
                 ImGui::EndCombo();
             }
             if (inFront) {
                 ImGui::SetNextItemWidth(200);
-                ImGui::SliderFloat("ahead (m)", &ahead, 1.0f, 50.0f, "%.0f");
+                ImGui::SliderFloat("Впереди (м)", &ahead, 1.0f, 50.0f, "%.0f");
             }
-            if (ImGui::Button("Spawn it", ImVec2(-1, 0))) {
+            if (ImGui::Button("Создать объект", ImVec2(-1, 0))) {
                 Menu_RequestPlace(thing, inFront, ahead);
                 MenuClose();
             }
-            ImGui::SetItemTooltip("Undo and Clear base in the build section remove these too.");
+            ImGui::SetItemTooltip("Кнопки отмены и очистки на вкладке строительства удаляют и эти объекты.");
         }
     }
 
-    ImGui::SeparatorText("Ships");
+    ImGui::SeparatorText("Корабли");
     struct Entry { const char* label; const char* cls; bool enemyWing; float height; bool sit; };
     static const struct { const char* label; const char* cls; } kSq42Ships[] = {
-        { "Idris-P (the Stanton's class)", "AEGS_Idris_P" },
-        { "Gladius (SQ42 fighter)",        "AEGS_Gladius" },
-        { "Retaliator (has an S42 HUD)",   "AEGS_Retaliator" },
-        { "Starfarer (ch 5, 7, 9)",        "MISC_Starfarer" },
-        { "Avenger Stalker (S42 wreck)",   "AEGS_Avenger_Stalker" },
-        { "Hornet (Cal Mason's ship)",     "ANVL_Hornet_F7C" },
-        { "Vanduul Blade (AI)",            "VNCL_Blade_PU_AI_VAN" },
-        { "Vanduul Scythe (AI)",           "VNCL_Scythe_PU_AI_VAN" },
-        { "Vanduul Glaive (AI)",           "VNCL_Glaive_PU_AI_VAN" },
-        { "Vanduul Stinger (AI)",          "VNCL_Stinger_PU_AI_VAN" },
+        { "Idris-P (класс Stanton)", "AEGS_Idris_P" },
+        { "Gladius (истребитель SQ42)",        "AEGS_Gladius" },
+        { "Retaliator (интерфейс S42)",   "AEGS_Retaliator" },
+        { "Starfarer (главы 5, 7, 9)",        "MISC_Starfarer" },
+        { "Avenger Stalker (обломки S42)",   "AEGS_Avenger_Stalker" },
+        { "Hornet (корабль Кэла Мэйсона)",     "ANVL_Hornet_F7C" },
+        { "Vanduul Blade (ИИ)",            "VNCL_Blade_PU_AI_VAN" },
+        { "Vanduul Scythe (ИИ)",           "VNCL_Scythe_PU_AI_VAN" },
+        { "Vanduul Glaive (ИИ)",           "VNCL_Glaive_PU_AI_VAN" },
+        { "Vanduul Stinger (ИИ)",          "VNCL_Stinger_PU_AI_VAN" },
     };
     Entry list[16];
     static_assert(sizeof(kSq42Ships) / sizeof(kSq42Ships[0]) + 2 <= sizeof(list) / sizeof(list[0]),
@@ -240,7 +264,7 @@ void DrawSq42Tab(void*, void*) {
     // spawn one UEE Bengal, the second with a Vanduul wing when an enemy side was found.
     static char bengalWing[64];
     const bool enemySide = Menu_EnemySideAvailable();
-    strcpy_s(bengalWing, enemySide ? "Bengal + Vanduul wing" : "Bengal + wing (UEE, no enemy side found)");
+    strcpy_s(bengalWing, enemySide ? "Bengal и звено Vanduul" : "Bengal и звено (UEE, противник не найден)");
     list[n++] = { "Bengal (UEE)", "RSI_Bengal_PU_AI_UEE", false,      1500.0f, false };
     list[n++] = { bengalWing,     "RSI_Bengal_PU_AI_UEE", enemySide, 1500.0f, false };
 
@@ -260,17 +284,17 @@ void DrawSq42Tab(void*, void*) {
         return false;
     };
 
-    ImGui::TextWrapped("Your ships put you in the pilot seat; the Vanduul ones spawn 300 m up and come for you.");
+    ImGui::TextWrapped("Ваши корабли сажают вас в кресло пилота. Корабли Vanduul появляются на 300 м выше и атакуют вас.");
     ImGui::SetNextItemWidth(-1);
-    ImGui::InputTextWithHint("##sq42shipFilter", "search ships...", sqFilter, sizeof(sqFilter));
+    ImGui::InputTextWithHint("##sq42shipFilter", "Поиск кораблей…", sqFilter, sizeof(sqFilter));
     ImGui::SetNextItemWidth(-1);
     if (ImGui::BeginCombo("##sq42ships", list[pick].label, ImGuiComboFlags_HeightLargest)) {
         for (int i = 0; i < n; ++i) {
-            if (sqFilter[0] && !MatchesFilter(list[i].label, sqFilter)) continue;
+            if (sqFilter[0] && !ListMatchesFilter(list[i].cls, list[i].label, sqFilter)) continue;
             ImGui::PushID(i);
             const bool have = known(list[i].cls);
             if (ImGui::Selectable(list[i].label, i == pick, have ? 0 : ImGuiSelectableFlags_Disabled)) pick = i;
-            if (!have) ImGui::SetItemTooltip("%s isn't in this game build's ship list.", list[i].cls);
+            if (!have) ImGui::SetItemTooltip("%s отсутствует в списке кораблей этой сборки игры.", list[i].cls);
             if (i == pick) ImGui::SetItemDefaultFocus();
             ImGui::PopID();
         }
@@ -278,11 +302,11 @@ void DrawSq42Tab(void*, void*) {
     }
     const bool pickKnown = known(list[pick].cls);
     if (list[pick].sit) {
-        ImGui::SliderFloat("height above me (m)", &height, 0.0f, 500.0f, "%.0f");
-        ImGui::Checkbox("put me in the pilot seat", &sit);
+        ImGui::SliderFloat("Высота над вами (м)", &height, 0.0f, 500.0f, "%.0f");
+        ImGui::Checkbox("Посадить в кресло пилота", &sit);
     }
     ImGui::BeginDisabled(!pickKnown);
-    const bool spawnClicked = ImGui::Button("Spawn", ImVec2(-1, 42));
+    const bool spawnClicked = ImGui::Button("Создать", ImVec2(-1, 42));
     ImGui::EndDisabled();
     if (spawnClicked) {
         Menu_RequestSpawnClass(list[pick].cls,
@@ -292,22 +316,22 @@ void DrawSq42Tab(void*, void*) {
         MenuClose();
     }
 
-    ImGui::SeparatorText("Console");
+    ImGui::SeparatorText("Консоль");
     static char cmd[256] = "";
     const bool consoleReady = Menu_ConsoleReady();
     ImGui::BeginDisabled(!consoleReady);
-    const float runWidth = ImGui::CalcTextSize("Run").x + ImGui::GetStyle().FramePadding.x * 2;
+    const float runWidth = ImGui::CalcTextSize("Выполнить").x + ImGui::GetStyle().FramePadding.x * 2;
     ImGui::SetNextItemWidth(-(runWidth + ImGui::GetStyle().ItemSpacing.x));
     bool run = ImGui::InputTextWithHint("##console",
-                                        "a console command, e.g. i_target_selector.targeting2_enabled 1",
+                                        "Команда, например i_target_selector.targeting2_enabled 1",
                                         cmd, sizeof(cmd), ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
-    run |= ImGui::Button("Run");
+    run |= ImGui::Button("Выполнить");
     ImGui::EndDisabled();
     if (run && cmd[0]) {
         Menu_RunConsole(cmd);
         cmd[0] = 0;
     }
-    if (!consoleReady) ImGui::TextDisabled("The game's console wasn't found yet.");
-    ImGui::TextWrapped("Runs in the game's own console. What it did shows in the game's log, not here.");
+    if (!consoleReady) ImGui::TextDisabled("Игровая консоль пока не найдена.");
+    ImGui::TextWrapped("Команда выполняется в консоли игры. Результат смотрите в Game.log.");
 }

@@ -86,7 +86,7 @@ sco_result SpawnLoad(const sco_api* api, sco_plugin* self) {
     if (r == SCO_OK) r = api->subscribe(self, "tick", OnTick, nullptr);
     if (r != SCO_OK) return r;   // the host releases what was registered
     // Its page of the menu (and keys), through sco.ui; the menu shell draws it (tabs.h).
-    RegisterBuiltinTab(api, self, "spawn.vehicles", "Vehicles", kTabVehicles, DrawVehiclesTab);
+    RegisterBuiltinTab(api, self, "spawn.vehicles", "Корабли", kTabVehicles, DrawVehiclesTab);
     g_ticking = true;
     return SCO_OK;
 }

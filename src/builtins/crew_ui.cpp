@@ -8,6 +8,7 @@
 #include "../third_party/imgui/imgui.h"
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 // "VNCL_Mauler_Gunner_Seat_200006242347" on a VNCL_Mauler -> "Gunner Seat 3"
 static void PrettySeatNames(const MenuSeat* seats, int n, const char* ship, char (*out)[64]) {
@@ -43,8 +44,8 @@ void CrewTabTick(uint32_t now) {
 
 void DrawCrewTab(void*, void*) {
     if (!Menu_SeatControlAvailable()) {
-        SectionHeading("Crew");
-        Hint("Seat control isn't available in this game version. mod.log has the details.");
+        SectionHeading("Экипаж");
+        Hint("Управление креслами недоступно в этой версии игры. Подробности в mod.log.");
         return;
     }
     static MenuSeat seats[128];
@@ -54,39 +55,42 @@ void DrawCrewTab(void*, void*) {
     char ship[64] = "";
     const int count = Menu_GetSeats(seats, 128, ship, sizeof(ship));
 
-    SectionHeading("Ship");
-    ImGui::TextUnformatted(count < 0 ? "No ship selected" : ship);
+    SectionHeading("Корабль");
+    ImGui::TextUnformatted(count < 0 ? "Корабль не выбран" : ReadableShipName(ship));
     ImGui::SameLine();
     const float button = 190;
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - button);
-    if (ImGui::Button("Use the ship I'm in", ImVec2(button, 0))) Menu_TargetShipImIn();
-    if (count < 0) { Hint("Spawn a ship, or board one and press 'Use the ship I'm in'."); return; }
-    if (count == 0) { Hint("Waiting for the ship to load..."); return; }
+    if (ImGui::Button("Выбрать мой корабль", ImVec2(button, 0))) Menu_TargetShipImIn();
+    if (count < 0) { Hint("Создайте корабль или сядьте в него и нажмите «Выбрать мой корабль»."); return; }
+    if (count == 0) { Hint("Ожидание загрузки корабля…"); return; }
 
-    SectionHeading("Seats");
+    SectionHeading("Кресла");
     PrettySeatNames(seats, count, ship, pretty);
+    static char filter[128]{};
+    SearchBox("##seatSearch","Поиск кресла…",filter,sizeof(filter));
     int sel = -1;
+    for(int i=0;i<count;++i) if(seats[i].id==selectedSeat) sel=i;
     const ImGuiTableFlags flags = ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter
                                 | ImGuiTableFlags_BordersInnerH;
     if (ImGui::BeginTable("##seats", 2, flags, ImVec2(0, 250))) {
         ImGui::TableSetupScrollFreeze(0, 1);
-        ImGui::TableSetupColumn("Seat", ImGuiTableColumnFlags_WidthStretch);
-        ImGui::TableSetupColumn("Occupant", ImGuiTableColumnFlags_WidthFixed, 90);
+        ImGui::TableSetupColumn("Кресло", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("Кто сидит", ImGuiTableColumnFlags_WidthFixed, 90);
         ImGui::TableHeadersRow();
         for (int i = 0; i < count; ++i) {
+            if(!ListMatchesFilter(seats[i].name,ReadableListName(pretty[i]),filter))continue;
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
-            char label[96];
-            snprintf(label, sizeof(label), "%s##seat%llu", pretty[i], seats[i].id);
-            if (ImGui::Selectable(label, seats[i].id == selectedSeat, ImGuiSelectableFlags_SpanAllColumns)) selectedSeat = seats[i].id;
+            const std::string label=std::string(ReadableListName(pretty[i]))+"##seat"+std::to_string(seats[i].id);
+            if (ImGui::Selectable(label.c_str(), seats[i].id == selectedSeat, ImGuiSelectableFlags_SpanAllColumns)) selectedSeat = seats[i].id;
             ImGui::SetItemTooltip("%s", seats[i].name);
             if (seats[i].id == selectedSeat) sel = i;
             ImGui::TableNextColumn();
             switch (seats[i].state) {
-            case SeatState_You:   ImGui::TextColored(kLeaf, "You"); break;
+            case SeatState_You:   ImGui::TextColored(kLeaf, "Вы"); break;
             case SeatState_Npc:   ImGui::TextUnformatted("NPC"); break;
-            case SeatState_Taken: ImGui::TextDisabled("Unknown"); break;
-            default:              ImGui::TextDisabled("Empty"); break;
+            case SeatState_Taken: ImGui::TextDisabled("Неизвестно"); break;
+            default:              ImGui::TextDisabled("Свободно"); break;
             }
         }
         ImGui::EndTable();
@@ -95,34 +99,34 @@ void DrawCrewTab(void*, void*) {
     const int state = sel >= 0 ? seats[sel].state : -1;
     const float quarter = Columns(4);
     ImGui::BeginDisabled(sel < 0 || state == SeatState_You);
-    if (ImGui::Button("Sit here", ImVec2(quarter, 0))) Menu_RequestSit(seats[sel].id, replace);
+    if (ImGui::Button("Сесть", ImVec2(quarter, 0))) Menu_RequestSit(seats[sel].id, replace);
     ImGui::EndDisabled();
     ImGui::SameLine();
     ImGui::BeginDisabled(state != SeatState_Npc && state != SeatState_You);
-    if (ImGui::Button("Stand up", ImVec2(quarter, 0))) Menu_RequestStandUp(seats[sel].id);
-    ImGui::SetItemTooltip("Whoever is in the seat gets up and stays aboard.");
+    if (ImGui::Button("Встать", ImVec2(quarter, 0))) Menu_RequestStandUp(seats[sel].id);
+    ImGui::SetItemTooltip("Сидящий в кресле встанет и останется на борту.");
     ImGui::EndDisabled();
     ImGui::SameLine();
     ImGui::BeginDisabled(state != SeatState_Npc);
-    if (ImGui::Button("Remove NPC", ImVec2(quarter, 0))) Menu_RequestKick(seats[sel].id);
-    ImGui::SetItemTooltip("Takes the NPC out of the game.");
+    if (ImGui::Button("Убрать NPC", ImVec2(quarter, 0))) Menu_RequestKick(seats[sel].id);
+    ImGui::SetItemTooltip("Удаляет NPC из игрового мира.");
     ImGui::EndDisabled();
     ImGui::SameLine();
     ImGui::BeginDisabled(state != SeatState_Empty);
-    if (ImGui::Button("Add NPC", ImVec2(quarter, 0))) Menu_RequestAddCrew(seats[sel].id, g_npcPick);
+    if (ImGui::Button("Добавить NPC", ImVec2(quarter, 0))) Menu_RequestAddCrew(seats[sel].id, g_npcPick);
     ImGui::EndDisabled();
-    ImGui::Checkbox("If an NPC is in the seat I pick, remove it", &replace);
+    ImGui::Checkbox("Убрать NPC из выбранного кресла", &replace);
 
-    SectionHeading("Crew");
-    Hint("NPC to add to seats:");
+    SectionHeading("Экипаж");
+    Hint("NPC для посадки в кресла:");
     const bool haveNpcs = NpcPicker();
     const float third = Columns(3);
     ImGui::BeginDisabled(!haveNpcs);
-    if (ImGui::Button("Fill empty seats", ImVec2(third, 0))) Menu_RequestFillCrew(g_npcPick);
+    if (ImGui::Button("Занять свободные кресла", ImVec2(third, 0))) Menu_RequestFillCrew(g_npcPick);
     ImGui::EndDisabled();
     ImGui::SameLine();
-    if (ImGui::Button("All NPCs stand up", ImVec2(third, 0))) Menu_RequestStandAll();
+    if (ImGui::Button("Поднять всех NPC", ImVec2(third, 0))) Menu_RequestStandAll();
     ImGui::SameLine();
-    if (ImGui::Button("Remove all NPCs", ImVec2(third, 0))) Menu_RequestClearCrew();
-    Hint("NPCs you add sit in their seats. They don't fly the ship or operate turrets yet.");
+    if (ImGui::Button("Убрать всех NPC", ImVec2(third, 0))) Menu_RequestClearCrew();
+    Hint("Добавленные NPC сидят в креслах. Они пока не пилотируют корабль и не управляют турелями.");
 }

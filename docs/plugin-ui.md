@@ -12,7 +12,7 @@ The menu shows the tabs registered through `sco.ui` by ascending `order`, ties i
 | 200 | Travel | `quantum` | `quantum.travel` |
 | 300 | Vehicles | `spawn` | `spawn.vehicles` |
 | 400 | Crew | `crew` | `crew.crew` |
-| 500 | NPCs | `npc` | `npc.npcs` |
+| 500 | reserved (NPC UI pending SDK widgets) | — | — |
 | 600 | Build | `build` | `build.build` |
 | 650 | Multiplayer | `multiplayer` | `multiplayer.session` |
 | 700 | Squadron 42 | `loadout` | `loadout.sq42` |
@@ -20,11 +20,18 @@ The menu shows the tabs registered through `sco.ui` by ascending `order`, ties i
 
 To put a tab between two of these, give it an order in between. An order above 700 puts it after Squadron 42 (the optional bridges' **Titanfall** and **Voxel** tabs take 800 and 810 in builds that include them). `teleport`, `contracts` and `mining` have no page of their own: their controls sit on the Player, Vehicles and Travel tabs, or they have no menu controls at all. The creative plugin has none either: the Player and Vehicles tabs' cheat checkboxes run its commands.
 
+NPC is now an external command-first plugin (`npc.spawn`, `npc.observe`, `npc.remove`,
+`npc.clear`), with no tab or new ImGui coupling. Its old NPC menu is unavailable pending
+renderer-neutral widgets ([sco-core #139](https://github.com/scubamount/sco-core/issues/139));
+Crew retains its existing host archetype picker. Inspector is command-only too.
+
 ## Drawing: ImGui through sc-offline's frame
 
 A draw callback gets `frame`, which is sc-offline's `ImGuiContext*`. It is valid **only during that call** and only on the game thread, the only thread sco-core runs draws on. The callback draws the tab's body inside the menu window, below the tab bar and above the status strip, and the window's scrolling child is already open. Overlays draw after the menu window, once per menu frame.
 
-A plugin that draws with ImGui has to use **the same ImGui as sc-offline**:
+ImGui is **optional for plugins**: commands, events, settings and hotkeys work without linking it. A plugin that cannot establish this host-specific drawing contract must skip tabs/overlays and keep its non-UI features working. The frozen `sco_api.h` 1.1 C ABI and `sco.ui` table cover callout registration and layout, **not** the memory behind `frame`. Sharing an `ImGuiContext*` is **third-party ABI coupling**, not compatibility across arbitrary ImGui versions.
+
+A plugin that draws with ImGui has to use **the exact ImGui source/configuration as sc-offline**:
 
 1. Compile sc-offline's vendored ImGui into the plugin: `src/third_party/imgui/` at the sc-offline version you target (`imgui.cpp`, `imgui_draw.cpp`, `imgui_tables.cpp`, `imgui_widgets.cpp`, with its `imconfig.h` unchanged and no backends). This branch ships ImGui 1.92.8 WIP (`IMGUI_VERSION_NUM` 19277).
 2. Include [`src/menu_imgui.h`](../src/menu_imgui.h), and call `sc_offline_imgui::Bind(frame)` first in every draw callback. It points the plugin's copy of ImGui at sc-offline's context and at the allocator sc-offline's ImGui uses (the process heap), so either side can free memory the other allocated, whichever C runtime each one links.
@@ -44,7 +51,9 @@ static void DrawMyTab(void* frame, void*) {
 
 [`tools/test-plugins/ui_probe`](../tools/test-plugins/ui_probe/ui_probe.cpp) is a complete example; `CMakeLists.txt` builds it against the `imgui` library target. A different ImGui version or `imconfig.h` is undefined behaviour.
 
-We chose to have plugins call ImGui directly rather than go through a C drawing shim: ImGui supports being shared across DLLs this way (context and allocator per module), a plugin gets every widget the built-ins use, and sc-offline doesn't have to keep a second API in step with ImGui. The cost is that a plugin must be rebuilt when sc-offline updates its ImGui.
+We chose direct ImGui calls rather than a C drawing shim, so a plugin can use the same widgets as built-ins. This is a deliberately version-locked product contract: Dear ImGui does not guarantee backward or forward ABI compatibility. Context/allocator binding does not negotiate versions, detect incompatible layouts or make arbitrary DLL builds safe. Rebuild drawing plugins when the host's ImGui snapshot, configuration or ABI-affecting build settings change; do not rely on crash guards to recover from corrupted native state.
+
+The immutable host source pin is `1ee0727cc63866a95e709ae61dd5dd355b511253`. [`tools/imgui-pin.py`](../tools/imgui-pin.py) pins SHA-256 for all 15 vendored implementation, backend, configuration, header and licence inputs, and separately compares the three public SDK files with the pinned sco-core submodule. The exact bytes—not just **1.92.8 WIP** / **19277**—must match. CI runs the pin gate and [`tools/test_imgui_pin.py`](../tools/test_imgui_pin.py), which rejects same-label source drift, matching drift on both sides, SDK-only drift and missing inputs. Intentional upgrades must hand-edit the pin and provenance together; there is no auto-update mode. The implementation/private headers are not added to the public SDK. These source checks are not game-runtime or compiler-configuration certification.
 
 **Crashes.** Each draw runs as a callout of its plugin under sco-core's crash guard. When a draw faults, sco-core disables that plugin and removes its tabs, badges, overlays and hotkeys. Around every draw, the menu stores ImGui's stack state and restores it afterwards (`ErrorRecoveryStoreState`), so a draw that faulted half-way, or forgot an `End*()`, doesn't break the rest of the frame. `mod.log` records `[menu] tab <id> (<title>) crashed; plugin '<id>' is disabled`, with sco-core's own crash line next to it.
 

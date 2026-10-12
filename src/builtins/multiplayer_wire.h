@@ -41,7 +41,9 @@ constexpr size_t kPoseRecord = 7 * sizeof(double);
 constexpr size_t kMaxPose = kPoseHeader + kMaxLevels * (1 + kMaxZoneName + kPoseRecord) + (kMaxLevels - 1) * kPoseRecord;
 constexpr size_t kSpawnHeader = 12;
 constexpr size_t kMaxSpawn = kSpawnHeader + kMaxClass;
-constexpr size_t kDespawn = 12;
+constexpr size_t kDespawn = 16; // 1 + 1 + 2 + 4 + 8; must include the full session ID
+constexpr size_t kMaxHello = 67;
+struct Hello { uint8_t poseVersion = kVersion; char build[64]{}; };
 static_assert(kMaxPose <= 1200, "a pose must fit one unreliable sco.net message");
 
 struct Level {
@@ -236,6 +238,24 @@ inline bool DecodeSpawn(const void* buf, size_t len, uint64_t sender, Spawn& out
     r.Bytes(out.cls, n);
     out.cls[n] = 0;
     return r.ok && ClassOk(out.cls, n);
+}
+
+// Optional reliable compatibility announcement; existing pose/spawn formats stay version 1.
+inline size_t EncodeHello(const Hello& h,uint8_t* buf,size_t cap) {
+    const size_t n=strnlen(h.build,sizeof(h.build));
+    if(!buf || n<1 || n>63)return 0;
+    for(size_t i=0;i<n;++i)if(static_cast<unsigned char>(h.build[i])<32 || static_cast<unsigned char>(h.build[i])>126)return 0;
+    Writer w(buf,cap);w.U8(1);w.U8(h.poseVersion);w.U8(static_cast<uint8_t>(n));w.U8(0);w.Bytes(h.build,n);
+    return w.ok?w.n:0;
+}
+inline bool DecodeHello(const void* buf,size_t len,Hello& out) {
+    if(!buf || len<5 || len>kMaxHello)return false;
+    Reader r(buf,len);out={};
+    if(r.U8()!=1)return false;
+    out.poseVersion=r.U8();const uint8_t n=r.U8();if(r.U8()!=0 || n<1 || n>63 || len!=4+size_t(n))return false;
+    r.Bytes(out.build,n);out.build[n]=0;
+    for(size_t i=0;i<n;++i)if(static_cast<unsigned char>(out.build[i])<32 || static_cast<unsigned char>(out.build[i])>126)return false;
+    return r.ok;
 }
 
 inline bool DecodeDespawn(const void* buf, size_t len, uint64_t sender, uint8_t& kind) {

@@ -143,19 +143,19 @@ static void LogStartup() {
     LogHooks();
     LogQuantum();
     if (g_signaturesResolved) sco::LogSignatureReport(false);
-    if (g_quitHookStatus) Log("[app] game quit hook: %s", g_quitHookStatus);
-    if (g_tp.ok) Log("[+] teleport: ready (F7 = save spot, F8 = go there)");
-    else         Log("[!] teleport: unavailable (see above)");
-    if (SpawnerReady()) Log("[+] ship spawner: ready (M = menu)");
-    else                Log("[!] ship spawner: unavailable (see above)");
-    if (g_outfitsOk) Log("[+] outfits: ready (Squadron 42 tab, data/outfits.txt)");
-    else             Log("[!] outfits: unavailable (they use the gear menu's loader; see [gear] above)");
+    if (g_quitHookStatus) Log("[app] Обработка выхода из игры: %s", g_quitHookStatus);
+    if (g_tp.ok) Log("[+] Телепортация доступна (F7 — сохранить точку, F8 — переместиться)");
+    else         Log("[!] Телепортация недоступна (причина выше)");
+    if (SpawnerReady()) Log("[+] Создание кораблей доступно (M — меню)");
+    else                Log("[!] Создание кораблей недоступно (причина выше)");
+    if (g_outfitsOk) Log("[+] Комплекты экипировки доступны (вкладка Squadron 42, data/outfits.txt)");
+    else             Log("[!] Комплекты экипировки недоступны (см. сообщения [gear] выше)");
     LogFleet();
     LogHangars();
     if (g_offline)
-        Log("[i] check Game.log: \"Process sc-client started\" line should show bOnline[0].");
+        Log("[i] Проверка Game.log: строка \"Process sc-client started\" должна содержать bOnline[0].");
     else
-        Log("[!] Game is running ONLINE.");
+        Log("[!] Игра запущена в сетевом режиме.");
 }
 
 // --- sco-core's host kit (sco/app.h), on the game thread -----------------------------------------
@@ -306,12 +306,19 @@ static void RunFeatureTicks(DWORD now) {
     if (!SpawnBuiltinOwnsTick()) ProcessShipMenu(now);
     if (!CrewBuiltinOwnsTick()) ProcessCrew(now);
     if (!LoadoutBuiltinOwnsTick()) { ProcessLoadout(); ProcessOutfits(); }
-    ProcessNpcs();   // npcs.txt, removals; the npc built-in spawns through game.actors and has no tick
+    ProcessNpcs();   // legacy npcs.txt/removal callers remain; external NPC uses game.actors with no tick
     if (!BuildBuiltinOwnsTick()) ProcessBuild();
     ProcessCVars();
     if (!QuantumBuiltinOwnsTick()) { ProcessQuantum(); ProcessTravel(now); }
     ProcessMissions();
-    if (!ContractsBuiltinOwnsTick()) ProcessContracts();
+    if (!ContractsBuiltinOwnsTick()) {
+        static bool warned = false;
+        if (!warned) {
+            warned = true;
+            Log("[contracts] built-in unavailable: actor-death events aren't subscribed; fallback retires hostiles by entity presence only");
+        }
+        ProcessContracts();
+    }
     TeleportTick(now);
     ProcessFleet(now);
 }
@@ -380,11 +387,11 @@ static DWORD WINAPI ModThread(LPVOID param) {
     HMODULE self = static_cast<HMODULE>(param);
     OpenConsole();
     Log(SCO_TITLE " (" SCO_BASED_ON ")");
-    Log("Bug reports: https://github.com/scubamount/sc-offline/issues");
+    Log("Сообщения об ошибках: https://github.com/scubamount/sc-offline/issues");
 
     HMODULE game = GetModuleHandleW(kTargetModule);
     if (!game) game = GetModuleHandleW(nullptr);
-    Log("[+] game module base: 0x%p", reinterpret_cast<void*>(game));
+    Log("[+] Базовый адрес модуля игры: 0x%p", reinterpret_cast<void*>(game));
 
     if (AntiCheatPresent()) {
         Log("[!] ANTI-CHEAT DETECTED. This mod is OFFLINE-ONLY and will not run here.");
@@ -396,7 +403,7 @@ static DWORD WINAPI ModThread(LPVOID param) {
         Sleep(5000);
         FreeLibraryAndExitThread(self, 0);
     }
-    Log("[+] No anti-cheat present. Safe to proceed (offline instance confirmed).");
+    Log("[+] Античит не обнаружен. Подтверждён локальный запуск.");
     if (ProcessElevated())
         Log("[!] the game is running as administrator. Windows then ignores the switches the game uses to turn off "
             "overlay Vulkan layers (OBS, Steam), and one of those can crash the game while it loads. Start sc-offline.exe "

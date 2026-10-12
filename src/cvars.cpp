@@ -1,5 +1,7 @@
 #include "cvars.h"
 #include "menu.h"
+#include "companion.h"
+#include <cmath>
 #include "world_caps.h"
 
 // Each cvar's storage is a sco-core row (cvars.*, sco/game/world.h), in capability cvars.qdrive_kept_on.
@@ -79,18 +81,18 @@ bool GetCVarNow(const char* name, float& value) {
 // per-blob key (Murmur-style fmix32 over the byte offset); these are the names
 // decrypted out of dinput8.dll's label table.
 static const struct { const char* label; const char* tip; const char* cvar; } kS42Settings[] = {
-    { "SQ42 auto targeting",
-      "\"Enables the auto targeting feature for SQ42\" (the game mode can override it).",
+    { "Автовыбор цели SQ42",
+      "Включает автоматический выбор цели SQ42. Игровой режим может переопределить настройку.",
       "i_target_selector.targeting2_enabled" },
-    { "Visor mini-map",
-      "The mini-map on your visor HUD.",
+    { "Мини-карта на визоре",
+      "Мини-карта в интерфейсе шлема.",
       "pl_lensdisplay.minimap_enabled" },
-    { "Visor greebles",
-      "The decorative frame pieces on your visor HUD.",
+    { "Декор визора",
+      "Декоративные элементы рамки интерфейса шлема.",
       "pl_lensdisplay.greebles_enabled" },
-    { "SQ42 menus (experimental)",
-      "\"Enable Squadron 42 Frontend\". Switches the pause menu and loading screens to SQ42's, whose data is "
-      "missing; turn it off before traveling or quitting if anything breaks.",
+    { "Меню SQ42 (экспериментально)",
+      "Меняет меню паузы и экраны загрузки на SQ42. Данные этих экранов "
+      "отсутствуют; при сбоях выключите перед перемещением или выходом.",
       "g_squadron_frontend" },
 };
 constexpr int kS42SettingCount = sizeof(kS42Settings) / sizeof(kS42Settings[0]);
@@ -147,6 +149,7 @@ void ResolveCVarsApi(const Section&, const Section&) {
         Log("[+] quantum cvars not found; they stay as the game mode sets them (see the [core] lines in mod.log)");
     }
     FindConsole();
+    ResolveCompanionBridge(g_text, g_rdata);
 }
 
 static void KeepSettingsOn() {
@@ -177,7 +180,35 @@ static void KeepSettingsOn() {
     }
 }
 
+// Read-only companion investigation. Console output is not retained in Game.log
+// on the tested client; sample through the existing cvar API on the game thread.
+// Delayed, bounded reads distinguish unavailable cvars from an actual zero and
+// cover initialization without generating a log line on every frame.
+static void LogCompanionCVars() {
+    static const ULONGLONG delays[] = { 10000, 30000, 60000, 120000 };
+    static const char* names[] = { "fg_SystemEnable", "fg_debugmodules" };
+    static bool started = false;
+    static ULONGLONG start = 0;
+    static size_t sample = 0;
+    if (sample >= sizeof(delays) / sizeof(delays[0])) return;
+    const ULONGLONG now = GetTickCount64();
+    if (!started) { started = true; start = now; }
+    if (now - start < delays[sample]) return;
+    Log("[companion-diag] readback %zu/4; console=%s; settings unchanged",
+        sample + 1, Menu_ConsoleReady() ? "ready" : "unavailable");
+    for (const char* name : names) {
+        float value = 0.0f;
+        if (GetCVarNow(name, value) && std::isfinite(value))
+            Log("[companion-diag] %s=%g", name, static_cast<double>(value));
+        else
+            Log("[companion-diag] %s=unavailable (not a zero value)", name);
+    }
+    ++sample;
+}
+
 void ProcessCVars() {
+    ProcessCompanionBridge();
+    LogCompanionCVars();
     KeepSettingsOn();
     {
         const LONG mask = InterlockedExchange(&g_s42PendingMask, 0);

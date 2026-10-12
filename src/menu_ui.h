@@ -15,6 +15,9 @@ bool  PrimaryButton(const char* label, float height = 36.0f);
 float Columns(int n);             // the width of one of n equal columns in the row
 bool  SearchBox(const char* id, const char* hint, char* buf, size_t n);
 bool  MatchesFilter(const char* name, const char* filter);   // every word of filter, any case
+const char* ReadableListName(const char* name);
+const char* ReadableShipName(const char* name);
+bool ListMatchesFilter(const char* raw, const char* display, const char* filter);
 // "PlayerDeco_Crate_{1234...}.socpak" -> "Crate (1234)": a game class or file name for a list.
 void  PrettyBuildName(char* out, size_t n, const char* name);
 

@@ -1,4 +1,11 @@
 # Places for the Travel tab.
+# Station starts use local identifiers mapped to parent-zone coordinates.
+# These are exterior ship starts; actual arrival must be verified in game.
+Stanton | Everus Harbor (проба) | local_station_everus | 0
+Stanton | Seraphim (проба) | local_station_seraphim | 0
+Stanton | Baijini Point (проба) | local_station_baijini | 0
+Stanton | Port Tressler (проба) | local_station_tressler | 0
+Stanton | Grim HEX (проба) | local_station_grimhex | 0
 #   system | name shown | entity name | radius in metres (0 = unknown)
 #
 # The entity names must match the game's exactly; all Stanton planets and moons below were confirmed

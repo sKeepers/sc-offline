@@ -8,3 +8,6 @@
 *.webp      binary
 *.png       binary
 *.jpg       binary
+
+# Exact ImGui source digests require LF on Windows as well.
+src/third_party/imgui/* text eol=lf

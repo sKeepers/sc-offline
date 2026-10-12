@@ -1,4 +1,5 @@
 #include "missions.h"
+#include "companion.h"
 #include "cvars.h"
 #include "spawner.h"
 #include "teleport.h"
@@ -82,6 +83,13 @@ static bool ReadScript(Script& s) {
 }
 
 static void* __fastcall LoadXmlFileHook(uintptr_t system, void* out, const char* path, bool reuseStrings) {
+    const char* payload = nullptr;
+    size_t payloadSize = 0;
+    if (CompanionXmlPayload(path, payload, payloadSize)) {
+        void* result = VCall<void*>(system, kLoadXmlBufferSlot, out, payload, payloadSize, reuseStrings);
+        Log("[companion] virtual XML parsed: %s", Rd<uintptr_t>(reinterpret_cast<uintptr_t>(out)) ? "yes" : "no");
+        return result;
+    }
     for (int i = 0; path && i < g_scriptCount; ++i) {
         Script& s = g_scripts[i];
         if (_stricmp(path, s.game)) continue;
@@ -89,6 +97,22 @@ static void* __fastcall LoadXmlFileHook(uintptr_t system, void* out, const char*
         return VCall<void*>(system, kLoadXmlBufferSlot, out, static_cast<const char*>(s.data), s.size, reuseStrings);
     }
     return g_loadXmlFileOrig(system, out, path, reuseStrings);
+}
+
+bool EnsureLocalXmlHook() {
+    if (g_loadXmlFileOrig) return true;
+    const uintptr_t system = g_system ? *g_system : 0;
+    if (!system) return false;
+    uint8_t* slot = reinterpret_cast<uint8_t*>(Rd<uintptr_t>(system) + kLoadXmlFileSlot);
+    g_loadXmlFileOrig = reinterpret_cast<LoadXmlFileFn>(Rd<uintptr_t>(reinterpret_cast<uintptr_t>(slot)));
+    const uintptr_t hook = reinterpret_cast<uintptr_t>(&LoadXmlFileHook);
+    DWORD err = 0;
+    if (!WriteCode(slot, reinterpret_cast<const uint8_t*>(&hook), sizeof(hook), err)) {
+        Log("[missions] couldn't hook LoadXmlFromFile (%lu)", err);
+        g_loadXmlFileOrig = nullptr;
+        return false;
+    }
+    return true;
 }
 
 static void ScriptId(const Script& s, char id[37]) {
@@ -139,17 +163,7 @@ static void AddOurScripts() {
     const uintptr_t library = sco::game::missions::ScriptLibrary(manager, &why);
     if (!library) { Log("[missions] %s", why); return; }
 
-    uint8_t* slot = reinterpret_cast<uint8_t*>(Rd<uintptr_t>(system) + kLoadXmlFileSlot);
-    if (!g_loadXmlFileOrig) {
-        g_loadXmlFileOrig = reinterpret_cast<LoadXmlFileFn>(Rd<uintptr_t>(reinterpret_cast<uintptr_t>(slot)));
-        const uintptr_t hook = reinterpret_cast<uintptr_t>(&LoadXmlFileHook);
-        DWORD err = 0;
-        if (!WriteCode(slot, reinterpret_cast<const uint8_t*>(&hook), sizeof(hook), err)) {
-            Log("[missions] couldn't hook LoadXmlFromFile (%lu)", err);
-            g_loadXmlFileOrig = nullptr;
-            return;
-        }
-    }
+    if (!EnsureLocalXmlHook()) return;
     static char ids[kMaxScripts][37];
     static bool done[kMaxScripts];
     for (int i = 0; i < g_scriptCount; ++i) {

@@ -185,17 +185,24 @@ static const char* LoadLoadout(const char* gamePath) {
     __try {
         const uintptr_t framework = VCall<uintptr_t>(*g_lo.game, g_lo.frameworkSlot);
         const uintptr_t actor = framework ? VCall<uintptr_t>(framework, g_lo.actorSlot) : 0;
-        if (!actor) return "you're not spawned yet";
+        if (!actor) return "РІС‹ РµС‰С‘ РЅРµ РїРѕСЏРІРёР»РёСЃСЊ РІ РёРіСЂРѕРІРѕРј РјРёСЂРµ";
         VCall<void>(actor, g_lo.loadSlot, gamePath, 8u, true);
         return nullptr;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
-        return "fault while loading the loadout";
+        return "РѕС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё СЃРЅР°СЂСЏР¶РµРЅРёСЏ";
     }
 }
 
 // Game thread only (ProcessLoadout / ProcessOutfits): writes the XML into SC_USER and has the
 // player's actor load it. One counter and one "last file" for both callers, so the gear menu
 // and the outfit menu can't hand out the same file name or delete each other's current file.
+static std::string g_lastLocalXml;
+static uint64_t g_lastLocalVersion=0;
+uint32_t CopyLastLocalLoadout(char* out,uint32_t capacity,uint64_t* version){
+ if(version)*version=g_lastLocalVersion;
+ const auto n=static_cast<uint32_t>(g_lastLocalXml.size());
+ if(out && capacity>=n)memcpy(out,g_lastLocalXml.data(),n);return n;
+}
 void EquipLoadoutXml(const std::string& xml, const char* tag) {
     static int  counter = 0;
     static char lastFile[MAX_PATH] = "";
@@ -211,6 +218,7 @@ void EquipLoadoutXml(const std::string& xml, const char* tag) {
     fwrite(xml.data(), 1, xml.size(), f);
     fclose(f);
     if (const char* err = LoadLoadout(gamePath)) { Log("[%s] equip failed: %s", tag, err); return; }
+    g_lastLocalXml=xml;++g_lastLocalVersion;
     Log("[%s] equipped (%s)", tag, name);
     if (lastFile[0]) DeleteFileA(lastFile);
     strcpy_s(lastFile, file);

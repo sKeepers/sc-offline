@@ -345,22 +345,22 @@ bool ApplyOfflinePatches() {
 }
 
 void LogOfflinePatches() {
-    LogOfflinePatch("offline-force (IsOnline = 0)", g_isOnlinePatch, "offline.force_offline");
-    LogOfflinePatch("local handshake (accept frontend connection)", g_handshakePatch, "offline.handshake");
-    LogOfflinePatch("megamap keeps record-name case", g_megamapCasePatch, "offline.megamap_case");
+    LogOfflinePatch("Принудительный офлайн (IsOnline = 0)", g_isOnlinePatch, "offline.force_offline");
+    LogOfflinePatch("Локальное подключение к клиентскому интерфейсу", g_handshakePatch, "offline.handshake");
+    LogOfflinePatch("Сохранение регистра имён записей карты", g_megamapCasePatch, "offline.megamap_case");
     if (g_bootIntoPUPatch.result == PatchResult::NotRun)
         Log("[-] boot into PU: off (set SC_OFFLINE_BOOT_MAP=PU to enable)");
     else if (BootIntoAllSystems())
-        LogOfflinePatch("boot into PU, every system (frontend request -> PU_All/SC_Default)", g_bootIntoPUPatch, BootCap());
+        LogOfflinePatch("Загрузка вселенной, все системы (PU_All/SC_Default)", g_bootIntoPUPatch, BootCap());
     else
-        LogOfflinePatch("boot into PU (frontend request -> PU/SC_Default)", g_bootIntoPUPatch, BootCap());
-    LogOfflinePatch("offline player data from %USER%\\default_1.xml", g_offlineDbPatch, "offline.db_path");
-    LogOfflinePatch("query OR-loop bound fix", g_orLoopPatch, "offline.or_loop_bound");
-    LogOfflinePatch("ASOP / fleet manager allowed on offline shard", g_asopPatch, "offline.asop_shard_gate");
-    LogOfflinePatch("landing zones don't destroy spawned ships", g_noImpoundPatch, "offline.no_impound");
-    LogOfflinePatch("offline contract broker + mission service (mobiGlas contracts)", g_missionServicesPatch, "offline.mission_services");
-    LogOfflinePatch("party/group checks without the social service (ramming, hostility, law)", g_socialGroupPatch, "offline.social_group");
-    LogOfflinePatch("no reconnecting service streams (presence, analytics, trace, echo)", g_serviceStreamsPatch, "offline.service_streams");
-    LogOfflinePatch("remote console only on this PC (127.0.0.1)", g_remoteConsolePatch, "offline.remote_console");
-    LogOfflinePatch("no Optick profiler server (TCP 31318 closed)", g_profilerServerPatch, "offline.profiler_server");
+        LogOfflinePatch("Загрузка вселенной (PU/SC_Default)", g_bootIntoPUPatch, BootCap());
+    LogOfflinePatch("Локальные данные игрока из %USER%\\default_1.xml", g_offlineDbPatch, "offline.db_path");
+    LogOfflinePatch("Исправление границ цикла OR в запросах", g_orLoopPatch, "offline.or_loop_bound");
+    LogOfflinePatch("ASOP и управление флотом в локальном мире", g_asopPatch, "offline.asop_shard_gate");
+    LogOfflinePatch("Защита созданных кораблей от удаления в посадочных зонах", g_noImpoundPatch, "offline.no_impound");
+    LogOfflinePatch("Локальные службы заданий и контрактов mobiGlas", g_missionServicesPatch, "offline.mission_services");
+    LogOfflinePatch("Проверки групп без социальной службы (таран, враждебность, закон)", g_socialGroupPatch, "offline.social_group");
+    LogOfflinePatch("Отключение повторных подключений служебных потоков", g_serviceStreamsPatch, "offline.service_streams");
+    LogOfflinePatch("Удалённая консоль только на этом ПК (127.0.0.1)", g_remoteConsolePatch, "offline.remote_console");
+    LogOfflinePatch("Сервер профилировщика Optick отключён (TCP 31318 закрыт)", g_profilerServerPatch, "offline.profiler_server");
 }

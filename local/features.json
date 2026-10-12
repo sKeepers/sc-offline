@@ -1,0 +1,130 @@
+{
+  "schema": 1,
+  "upstream_tag": "v0.7.7",
+  "upstream_commit": "85774b784d4cc8eb5dda75148387318486971ef6",
+  "sco_core_commit": "cd9a686bda4184f1befbdf0b74b503a1565540dd",
+  "local_revision": 4,
+  "upstream_binary_update": "notify_only",
+  "features": [
+    {
+      "id": "russian_ui",
+      "paths": [
+        "localization",
+        "src/common.cpp",
+        "launcher/launcher.cpp"
+      ],
+      "runtime": "pending; new upstream strings need additional localization"
+    },
+    {
+      "id": "readable_names_search",
+      "paths": [
+        "src/ship_label.h",
+        "src/npc_label.h",
+        "src/builtins/npc_ui.cpp",
+        "src/builtins/spawn_ui.cpp"
+      ],
+      "runtime": "pending"
+    },
+    {
+      "id": "player_name",
+      "paths": [
+        "launcher/exploration_launcher.h",
+        "src/builtins/loadout_ui.cpp"
+      ],
+      "data": [
+        "data/player-profile.ini"
+      ],
+      "scope": "mod UI only",
+      "runtime": "pending"
+    },
+    {
+      "id": "exploration",
+      "paths": [
+        "plugins/exploration",
+        "src/local_plugin_adapter.cpp",
+        "src/travel.cpp",
+        "src/teleport.cpp"
+      ],
+      "data": [
+        "data/storage/exploration.db"
+      ],
+      "runtime": "plugin test host passed; old save compatible; game runtime pending; cross-system startup unresolved"
+    },
+    {
+      "id": "fleet_bridge",
+      "paths": [
+        "server",
+        "src/bridge.cpp",
+        "src/fleet.cpp"
+      ],
+      "data": [
+        "server/server-state",
+        "data/bridge.ini",
+        "data/bridge-pending.txt"
+      ],
+      "runtime": "new game session pending"
+    },
+    {
+      "id": "hangar_guard",
+      "paths": [
+        "src/pad_occupancy.h",
+        "src/fleet.cpp"
+      ],
+      "runtime": "pending; conservative stale-occupancy limitation retained"
+    },
+    {
+      "id": "npc_guard",
+      "paths": [
+        "src/spawn_safety.h",
+        "src/builtins/npc_host_adapter.h",
+        "src/builtins/npc_plugin.cpp"
+      ],
+      "runtime": "pending"
+    },
+    {
+      "id": "companion",
+      "paths": [
+        "local/host/companion_adapter.cpp",
+        "src/companion.h"
+      ],
+      "runtime": "experimental; follow and guard not confirmed"
+    },
+    {
+      "id": "ship_startup",
+      "paths": [
+        "src/spawner.cpp",
+        "src/builtins/crew_plugin.cpp"
+      ],
+      "runtime": "engine state unverified"
+    },
+    {
+      "id": "loadout_presets",
+      "paths": [
+        "plugins/loadout_presets",
+        "src/local_plugin_adapter.cpp",
+        "src/loadout.cpp"
+      ],
+      "data": [
+        "data/storage/loadout_presets.db"
+      ],
+      "scope": "loadouts applied by mod; no real pocket inventory or cargo",
+      "runtime": "plugin persistence/apply test passed; game runtime pending"
+    },
+    {
+      "id": "launcher_runtime_localization",
+      "paths": [
+        "local/localization.h",
+        "local/launcher_catalog.inc",
+        "localization/launcher",
+        "launcher/launcher.cpp",
+        "launcher/exploration_launcher.h"
+      ],
+      "scope": "launcher-first; game names read locally; plugin ABI unchanged",
+      "runtime": "native tests passed; visual and game confirmation pending"
+    }
+  ],
+  "sdk_version": "2.0.0",
+  "plugin_abi": "1.1",
+  "status": "upstream main alignment candidate; runtime unverified",
+  "upstream_release_commit": "1ac5308a65ac0ba7955e4108bd1dc800449cfa69"
+}

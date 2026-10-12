@@ -201,17 +201,17 @@ struct HookSpec {
 };
 
 static const HookSpec kHooks[] = {
-    { "inventory filter validator", "inventory.validate_filter", "inventory.filter_validator",
+    { "Проверка фильтров инвентаря", "inventory.validate_filter", "inventory.filter_validator",
       5, reinterpret_cast<void*>(&Hook_ValidateFilter), reinterpret_cast<void**>(&g_origValidateFilter), nullptr },
-    { "inventory projection validator", "inventory.validate_projection", "inventory.projection_validator",
+    { "Проверка проекций инвентаря", "inventory.validate_projection", "inventory.projection_validator",
       5, reinterpret_cast<void*>(&Hook_ValidateProjection), reinterpret_cast<void**>(&g_origValidateProjection), nullptr },
-    { "hangar elevator crash guard", "elevator.instance_group_query", "elevator.crash_guard",
+    { "Защита от сбоя лифта ангара", "elevator.instance_group_query", "elevator.crash_guard",
       5, reinterpret_cast<void*>(&Hook_InstanceGroupQuery), reinterpret_cast<void**>(&g_origInstanceGroupQuery),
       &PrepareInstanceGroupQuery },
-    { "fleet manager ship list (offline)", "fleet.entitlements_result", "fleet.ship_list",
+    { "Локальный список кораблей", "fleet.entitlements_result", "fleet.ship_list",
       5, reinterpret_cast<void*>(&Hook_EntitlementsResult), reinterpret_cast<void**>(&g_origEntitlementsResult),
       nullptr },
-    { "fleet manager retrieve -> spaceport ATC", "asop.fleet_retrieve", "fleet.retrieve_atc",
+    { "Выдача корабля через диспетчерскую космопорта", "asop.fleet_retrieve", "fleet.retrieve_atc",
       5, reinterpret_cast<void*>(&Hook_RetrieveVehicle), reinterpret_cast<void**>(&g_origRetrieveVehicle),
       &PrepareRetrieveVehicle },
 };
@@ -447,7 +447,7 @@ const char* RequestShipFromAtc(uint64_t atcEntity, uint64_t player, const char* 
         g_getATCComp(handle, atcEntity);
         const uintptr_t atc = handle[0] & kPtrMask;
         if (!atc) return "this terminal has no spaceport ATC";
-        if (!player) return "player not spawned";
+        if (!player) return "персонаж ещё не появился";
         alignas(16) uint8_t location[32] = {};
         void* archetype = nullptr;
         void* padFilter = nullptr;

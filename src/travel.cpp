@@ -3,9 +3,11 @@
 #include "spawner.h"
 #include "menu.h"
 #include "builtins/builtin_store.h"
+#include "../plugins/exploration/exploration_state.h"
 #include <share.h>
 #include <cctype>
 #include <algorithm>
+#include "../local/station_catalog.h"
 
 // =============================================================================================
 // Shared state. The menu thread reads snapshots; the game thread owns every change.
@@ -23,7 +25,68 @@ static int            g_markCount = 0;
 static char           g_currentSystem[32] = "";
 static volatile LONG  g_placesVersion = 0;      // bumped whenever g_places changes
 
-enum ReqKind { Req_None, Req_Place, Req_Bookmark, Req_Save, Req_Delete, Req_Scan };
+struct StartupDestination {
+    uint32_t schema = 1;
+    int mode = 0; // 0 normal launcher start, 1 listed place, 2 exact foot position
+    TravelPlace place{};
+    float altitude = 1000;
+    Spot spot{};
+};
+static StartupDestination g_startup;
+static bool g_startupPending = false;
+static bool g_startupRelocationSent = false;
+static char g_launcherPlace[96] = {};
+static char g_launcherShip[64] = {};
+
+static bool ValidStartup(const StartupDestination& s) {
+    if (s.schema != 1 || s.mode < 0 || s.mode > 2 || !exploration::ValidSpot(s.spot)) return false;
+    if (s.mode != 1) return s.mode != 2 || s.spot.n > 0;
+    return (std::find(std::begin(s.place.name), std::end(s.place.name), char(0)) != std::end(s.place.name)) && s.place.name[0] &&
+        (std::find(std::begin(s.place.entity), std::end(s.place.entity), char(0)) != std::end(s.place.entity)) && s.place.entity[0] &&
+        (std::find(std::begin(s.place.system), std::end(s.place.system), char(0)) != std::end(s.place.system)) && (std::find(std::begin(s.place.body), std::end(s.place.body), char(0)) != std::end(s.place.body)) &&
+        std::isfinite(s.place.radius) && s.place.radius >= 0 && s.place.radius < 1e10 &&
+        s.place.kind >= Place_Planet && s.place.kind <= Place_Minor &&
+        std::isfinite(s.altitude) && s.altitude >= 100 && s.altitude <= 20000;
+}
+void Travel_LoadStartup() {
+    StartupDestination saved;
+    if (g_quantumStore && g_quantumStore.S().Get("startup.v1", saved) == SCO_OK) {
+        if (ValidStartup(saved)) g_startup = saved;
+        else Log("[travel-start] invalid startup record ignored");
+    }
+    char choice[128] = {};
+    const DWORD n = GetEnvironmentVariableA("SC_OFFLINE_START", choice, sizeof(choice));
+    if (n && n < sizeof(choice) && strncmp(choice, "place:", 6) == 0 && strlen(choice + 6) < sizeof(g_launcherPlace)) {
+        strcpy_s(g_launcherPlace, choice + 6);
+        GetEnvironmentVariableA("SC_OFFLINE_START_SHIP", g_launcherShip, sizeof(g_launcherShip));
+        g_startup = {}; g_startup.mode = 1; // resolved against the same catalogue on the first tick
+    } else if (_stricmp(choice, "Daymar") == 0 || _stricmp(choice, "normal") == 0 || _stricmp(choice, "resume") == 0) {
+        g_startup = {}; SuppressSavedSpotAutostart();
+    } // explicit launcher choice wins over old menu start
+    g_startupPending = g_startup.mode != 0;
+    if (g_startupPending) { CancelDaymarStart(); SuppressSavedSpotAutostart(); }
+    Log("[travel-start] loaded mode=%d", g_startup.mode);
+}
+bool Travel_HasStartup() {
+    AcquireSRWLockShared(&g_travelLock);
+    const bool enabled = g_startup.mode != 0;
+    ReleaseSRWLockShared(&g_travelLock); return enabled;
+}
+void Travel_StartupDescription(char* out, size_t size) {
+    AcquireSRWLockShared(&g_travelLock);
+    if (g_startup.mode == 1) snprintf(out, size, "Старт: %s / %s", g_startup.place.system, g_startup.place.name);
+    else if (g_startup.mode == 2) snprintf(out, size, "Старт в сохранённой точке: %s", g_startup.spot.z[0].name);
+    else snprintf(out, size, "Старт: настройки лаунчера");
+    ReleaseSRWLockShared(&g_travelLock);
+}
+static void SaveStartup(const StartupDestination& destination) {
+    if (!ValidStartup(destination) || !g_quantumStore || g_quantumStore.S().Put("startup.v1", destination) != SCO_OK) {
+        SetMenuStatus("Не удалось сохранить стартовую точку. Предыдущая настройка оставлена."); return;
+    }
+    AcquireSRWLockExclusive(&g_travelLock); g_startup = destination; ReleaseSRWLockExclusive(&g_travelLock);
+    SetMenuStatus(destination.mode ? "Стартовая точка сохранена для следующего запуска. Автосохранение её не меняет." : "Выбор стартовой точки отключён. Следующий запуск использует настройки лаунчера.");
+}
+enum ReqKind { Req_None, Req_Place, Req_Bookmark, Req_Save, Req_Delete, Req_Scan, Req_StartPlace, Req_StartHere, Req_StartOff };
 static struct { int kind; TravelPlace place; float altitude; int index; char name[64]; } g_req;
 
 static void Queue(int kind, const TravelPlace* place = nullptr, float altitude = 0, int index = -1, const char* name = nullptr) {
@@ -42,6 +105,9 @@ void Travel_RequestBookmark(int index)                            { Queue(Req_Bo
 void Travel_RequestSaveBookmark(const char* name)                 { Queue(Req_Save, nullptr, 0, -1, name); }
 void Travel_RequestDeleteBookmark(int index)                      { Queue(Req_Delete, nullptr, 0, index); }
 void Travel_RequestScan()                                         { Queue(Req_Scan); }
+void Travel_RequestStartupPlace(const TravelPlace& p, float altitude) { Queue(Req_StartPlace, &p, altitude); }
+void Travel_RequestStartupHere() { Queue(Req_StartHere); }
+void Travel_RequestDisableStartup() { Queue(Req_StartOff); }
 
 int Travel_PlacesVersion() { return g_placesVersion; }
 
@@ -470,7 +536,7 @@ bool Travel_Scanning(float& progress) {
 }
 
 static void StartScan(DWORD now) {
-    if (g_scan.active) { SetMenuStatus("A scan is already running."); return; }
+    if (g_scan.active) { SetMenuStatus("Сканирование уже выполняется."); return; }
     g_scan = {};
     g_scan.active = true;
     g_scan.next = g_scan.lastHit = kStaticIdBase;
@@ -478,7 +544,7 @@ static void StartScan(DWORD now) {
     AcquireSRWLockShared(&g_travelLock);
     g_scan.newFrom = g_placeCount;
     ReleaseSRWLockShared(&g_travelLock);
-    SetMenuStatus("Scanning for places...");
+    SetMenuStatus("Поиск мест…");
 }
 
 // What the scan learns about one entity. Kept apart from the bookkeeping so the fenced reads have
@@ -529,7 +595,7 @@ static void FinishScan(DWORD now) {
     Log("[travel] scan: ids %llu..%llu, %d entities, %d zone hosts (%d ships skipped, %d too deep), %d new places, %.1f s",
         static_cast<unsigned long long>(kStaticIdBase), static_cast<unsigned long long>(g_scan.lastHit), g_scan.entities,
         g_scan.zones, g_scan.ships, g_scan.deep, n, (now - g_scan.start) / 1000.0);
-    SetMenuStatus("Scan finished: %d new place%s.", n, n == 1 ? "" : "s");
+    SetMenuStatus("Поиск завершён. Новых мест: %d%s.", n, "");
 }
 
 static void StepScan(DWORD now) {
@@ -569,7 +635,75 @@ static void StepScan(DWORD now) {
 // Going places
 // =============================================================================================
 
-static const char* GoToPlace(const TravelPlace& p, float altitude) {
+static struct { bool active; DWORD since; TravelPlace place; float altitude; Spot target; } g_arrival;
+
+// Snapshot named coordinates, never retain game pointers across ticks. Ancestors let
+// us confirm arrival even before the destination's own zone finishes streaming.
+static bool ArrivalSpot(uintptr_t zone, const double local[3], Spot& out) {
+    out = {};
+    __try {
+        double world[3];
+        LocalToWorld(zone, local, world);
+        int steps = 0;
+        for (uintptr_t z = zone; z && out.n < kMaxZoneDepth && steps++ < 64; z = ZoneParent(z)) {
+            const char* name = ZoneName(z);
+            if (!name || !*name) continue;
+            auto& frame = out.z[out.n];
+            if (z == zone) memcpy(frame.local, local, sizeof(frame.local));
+            else if (!WorldToLocal(z, world, frame.local)) continue;
+            strncpy_s(frame.name, name, _TRUNCATE);
+            ++out.n;
+        }
+        return out.n > 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { out = {}; return false; }
+}
+
+const char* Travel_ResolveSpawn(const TravelPlace& p, float altitude, uint64_t& zoneId, double local[3]) {
+    if (const auto* station = FindLocalStationStart(p.entity)) {
+        uintptr_t parent = 0; uint64_t id = 0;
+        if (!FindEntityByNameEx(station->parent, parent, id)) return "планета станции ещё не загружена; требуется PU_All";
+        __try {
+            const uintptr_t zone = VCall<uintptr_t>(parent, 0x6E0);
+            if (!zone) return "зона планеты станции недоступна";
+            zoneId = ZoneId(zone);
+            if (!zoneId || ZoneFromId(zoneId) != zone) return "ID зоны станции не соответствует планете";
+            const double r = sqrt(station->position[0]*station->position[0] + station->position[1]*station->position[1] + station->position[2]*station->position[2]);
+            if (!std::isfinite(r) || r < 1) return "неверные координаты станции";
+            const double clearance = (std::max)(3000.0, double(altitude));
+            for (int i=0; i<3; ++i) local[i] = station->position[i] * (1.0 + clearance/r);
+            return nullptr;
+        } __except (EXCEPTION_EXECUTE_HANDLER) { return "ошибка чтения зоны станции"; }
+    }
+    uintptr_t entity = 0; uint64_t id = 0;
+    if (!FindEntityByNameEx(p.entity, entity, id)) return "место ещё не загружено; требуется PU_All";
+    __try {
+        uintptr_t zone = VCall<uintptr_t>(entity, 0x6E0);
+        if (zone) {
+            local[0] = local[1] = 0;
+            local[2] = p.radius > 0 ? p.radius + altitude : p.kind == Place_Planet ? 9.0e6 : p.kind == Place_Moon ? 1.5e6 : (std::max)(2000.0, double(altitude));
+        } else {
+            zone = VCall<uintptr_t>(entity, 0x6B8);
+            Vec3Out(entity, 0x2B8, local);
+            local[2] += (std::max)(2000.0, double(altitude)); // outside station geometry, not an interior bed
+        }
+        if (!zone) return "у места нет доступной зоны";
+        zoneId = ZoneId(zone);
+        if (!zoneId || ZoneFromId(zoneId) != zone) return "зона места не соответствует ID";
+        return nullptr;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return "ошибка чтения зоны старта"; }
+}
+
+static const char* GoToPlace(const TravelPlace& p, float altitude, Spot& target) {
+    if (PlayerSeatLinkState() == 1)
+        return "— сначала выйдите из кресла. Эта кнопка перемещает персонажа; корабль остаётся на месте";
+    if (FindLocalStationStart(p.entity)) {
+        uint64_t zoneId = 0; double local[3] = {};
+        if (const char* err = Travel_ResolveSpawn(p, altitude, zoneId, local)) return err;
+        const uintptr_t zone = ZoneFromId(zoneId);
+        if (!zone || !ArrivalSpot(zone, local, target)) return "не удалось прочитать точку возле станции";
+        Log("[travel-station] %s parent-zone=%llu; offset outside station, runtime verification pending", p.entity, zoneId);
+        return TeleportIntoZone(zone, local);
+    }
     uintptr_t entity;
     uint64_t id;
     if (!FindEntityByNameEx(p.entity, entity, id))
@@ -584,10 +718,39 @@ static const char* GoToPlace(const TravelPlace& p, float altitude) {
         else if (p.kind == Place_Moon) height = 1.5e6;
         else height = altitude < 2000 ? 2000 : altitude;
         const double local[3] = { 0, 0, height };
+        if (!ArrivalSpot(zone, local, target)) return "— не удалось прочитать координаты назначения";
         return TeleportIntoZone(zone, local);
     }
     if (!id) return "found, but it has no id to teleport to";
+    __try {
+        zone = VCall<uintptr_t>(entity, 0x6B8);
+        double local[3]; Vec3Out(entity, 0x2B8, local);
+        const double up = altitude < 50 ? altitude : 50;
+        const double r = sqrt(local[0]*local[0] + local[1]*local[1] + local[2]*local[2]);
+        if (r > 100000) for (int i=0; i<3; ++i) local[i] += local[i]/r*up;
+        else local[2] += up;
+        if (!zone || !ArrivalSpot(zone, local, target)) return "— не удалось прочитать координаты назначения";
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return "— ошибка чтения места назначения"; }
     return TeleportToEntity(id, altitude < 50 ? altitude : 50);
+}
+
+static void CheckArrival(DWORD now) {
+    if (!g_arrival.active) return;
+    Spot here;
+    const bool sampled = CaptureCurrentSpot(here) == nullptr;
+    const double distance = sampled ? exploration::Distance(here, g_arrival.target) : -1;
+    if (distance >= 0 && std::isfinite(distance) && distance <= 150) {
+        g_arrival.active = false;
+        Log("[travel] arrival confirmed: %s, error=%.1f m", g_arrival.place.entity, distance);
+        if (g_arrival.place.radius > 0)
+            SetMenuStatus("Прибытие к %s подтверждено: %.0f м над расчётной поверхностью.", g_arrival.place.name, g_arrival.altitude);
+        else
+            SetMenuStatus("Прибытие к %s подтверждено. Радиус неизвестен; точка может быть далеко от поверхности.", g_arrival.place.name);
+    } else if (now - g_arrival.since >= 15000) {
+        g_arrival.active = false;
+        Log("[travel] arrival NOT confirmed: %s, distance=%.1f m, position_read=%d", g_arrival.place.entity, distance, sampled);
+        SetMenuStatus("Прибытие к %s не подтверждено. Выйдите из кресла и повторите; подробности в mod.log.", g_arrival.place.name);
+    }
 }
 
 static void HandleRequest(DWORD now) {
@@ -597,27 +760,47 @@ static void HandleRequest(DWORD now) {
     ReleaseSRWLockExclusive(&g_travelLock);
 
     switch (req.kind) {
+    case Req_StartPlace: {
+        StartupDestination start; start.mode = 1; start.place = req.place; start.altitude = req.altitude;
+        SaveStartup(start); break;
+    }
+    case Req_StartHere: {
+        if (PlayerSeatLinkState() != 0 || PlayerShipId()) {
+            SetMenuStatus("Для точной стартовой точки встаньте и выйдите из корабля. Кровать корабля пока не сохраняется."); break;
+        }
+        StartupDestination start; start.mode = 2;
+        if (const char* err = CaptureCurrentSpot(start.spot)) SetMenuStatus("Не удалось прочитать точку: %s", err);
+        else SaveStartup(start);
+        break;
+    }
+    case Req_StartOff: { SaveStartup(StartupDestination{}); break; }
     case Req_Place: {
-        if (const char* err = GoToPlace(req.place, req.altitude)) SetMenuStatus("%s %s.", req.place.name, err);
-        else if (req.place.radius > 0)
-            SetMenuStatus("Teleported to %s, %.0f m above the surface.", req.place.name, req.altitude);
-        else if (req.place.kind != Place_Other)
-            SetMenuStatus("Teleported to %s. Its size isn't known, so you're in orbit - fly in from here.", req.place.name);
-        else
-            SetMenuStatus("Teleported to %s.", req.place.name);
+        g_startupPending = false; g_startupRelocationSent = false;
+        Log("[travel-start] automatic startup superseded by manual destination");
+        g_arrival = {};
+        if (const char* err = GoToPlace(req.place, req.altitude, g_arrival.target)) SetMenuStatus("%s %s.", req.place.name, err);
+        else {
+            g_arrival.active = true; g_arrival.since = now;
+            g_arrival.place = req.place; g_arrival.altitude = req.altitude;
+            Log("[travel] request sent: %s; waiting for actual player position", req.place.entity);
+            SetMenuStatus("Запрос к %s отправлен. Проверяю прибытие…", req.place.name);
+        }
         break;
     }
     case Req_Bookmark: {
+        g_startupPending = false; g_startupRelocationSent = false;
+        g_arrival.active = false;
         if (req.index < 0 || req.index >= g_markCount) break;
+        if (PlayerSeatLinkState() == 1) { SetMenuStatus("Сначала выйдите из кресла: сохранённая точка перемещает персонажа, а не корабль."); break; }
         const TravelBookmark mark = g_marks[req.index];
-        if (const char* err = GoToSpot(g_markSpots[req.index], now, "bookmark")) SetMenuStatus("Can't go to '%s': %s.", mark.name, err);
-        else SetMenuStatus("Teleported to '%s'.", mark.name);
+        if (const char* err = GoToSpot(g_markSpots[req.index], now, "bookmark")) SetMenuStatus("Не удалось переместиться к «%s»: %s.", mark.name, err);
+        else SetMenuStatus("Перемещение к «%s» выполнено.", mark.name);
         break;
     }
     case Req_Save: {
         Spot s;
-        if (const char* err = CaptureCurrentSpot(s)) { SetMenuStatus("Couldn't save this spot: %s.", err); break; }
-        if (g_markCount >= kMaxBookmarks) { SetMenuStatus("You have %d saved spots; delete one first.", kMaxBookmarks); break; }
+        if (const char* err = CaptureCurrentSpot(s)) { SetMenuStatus("Не удалось сохранить точку: %s.", err); break; }
+        if (g_markCount >= kMaxBookmarks) { SetMenuStatus("Сохранено %d точек. Сначала удалите одну.", kMaxBookmarks); break; }
         TravelBookmark mark = {};
         SpotSystemName(s, mark.system, sizeof(mark.system));
         if (!mark.system[0]) strcpy_s(mark.system, "Unknown system");
@@ -629,7 +812,7 @@ static void HandleRequest(DWORD now) {
         ++g_markCount;
         ReleaseSRWLockExclusive(&g_travelLock);
         SaveBookmarks();
-        SetMenuStatus("Saved '%s' (%s).", mark.name, mark.system);
+        SetMenuStatus("Сохранено: «%s» (%s).", mark.name, mark.system);
         break;
     }
     case Req_Delete: {
@@ -641,7 +824,7 @@ static void HandleRequest(DWORD now) {
         --g_markCount;
         ReleaseSRWLockExclusive(&g_travelLock);
         SaveBookmarks();
-        SetMenuStatus("Deleted '%s'.", name);
+        SetMenuStatus("Удалено: «%s».", name);
         break;
     }
     case Req_Scan:
@@ -659,6 +842,19 @@ void ProcessTravel(DWORD now) {
         LoadPlaces("locations.txt", true);
         LoadPlaces("locations_found.txt", false);
         LoadBookmarks();
+        if (g_launcherPlace[0]) {
+            bool found = false;
+            AcquireSRWLockExclusive(&g_travelLock);
+            for (int i = 0; i < g_placeCount; ++i) if (_stricmp(g_places[i].entity, g_launcherPlace) == 0) {
+                g_startup.place = g_places[i]; g_startup.altitude = 3000; found = true; break;
+            }
+            ReleaseSRWLockExclusive(&g_travelLock);
+            if (!found || !ValidStartup(g_startup)) {
+                g_startupPending = false;
+                Log("[travel-start] launcher destination absent/invalid: %s", g_launcherPlace);
+                SetMenuStatus("Стартовая точка отсутствует в каталоге: %s", g_launcherPlace);
+            }
+        }
     }
     static DWORD lastSystem = 0;
     if (now - lastSystem > 2000) {
@@ -674,5 +870,81 @@ void ProcessTravel(DWORD now) {
         ReleaseSRWLockExclusive(&g_travelLock);
     }
     HandleRequest(now);
+    if (g_startupPending) {
+        static DWORD readyAt = 0, lastTry = 0;
+        static unsigned attempts = 0;
+        uintptr_t actor = 0, entity = 0;
+        bool ready = false;
+        __try { ready = GetLocalPlayer(actor, entity); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        if (!ready) readyAt = 0;
+        if (ready && !readyAt) readyAt = now;
+        // Dispatch success is not arrival: loading/bed transitions can overwrite the
+        // first teleport. Observe coordinates every tick and create at most one ship,
+        // only after the player is actually at the requested destination.
+        if (ready && g_startupRelocationSent) {
+            Spot here;
+            const bool sampled = CaptureCurrentSpot(here) == nullptr;
+            const double distance = sampled ? exploration::Distance(here, g_arrival.target) : -1;
+            if (distance >= 0 && std::isfinite(distance) && distance <= 150) {
+                CheckArrival(now);
+                g_startupPending = false;
+                Log("[travel-start] actual arrival confirmed before ship creation: distance=%.1f m", distance);
+                if (g_launcherPlace[0] && g_launcherShip[0]) {
+                    if (const char* err = StartShipAtPlace(g_startup.place, g_startup.altitude, g_launcherShip, now)) {
+                        Log("[travel-start] ship creation failed after confirmed arrival: %s", err);
+                        SetMenuStatus("Прибытие подтверждено, но корабль не создан: %s", err);
+                    } else SetMenuStatus("Прибытие к %s подтверждено. Корабль создан; ожидаю посадку в кресло.", g_startup.place.name);
+                }
+                return;
+            }
+        }
+        if (ready && now - readyAt >= 120000) {
+            g_startupPending = false;
+            g_arrival.active = false;
+            SetMenuStatus("Стартовая точка недоступна. Проверьте PU_All и загрузку места; настройка сохранена.");
+            Log("[travel-start] gave up after 120 seconds; destination retained");
+        } else if (ready && now - readyAt >= 10000 && now - lastTry >= 5000) {
+            lastTry = now;
+            Spot observed;
+            const bool sampled = CaptureCurrentSpot(observed) == nullptr;
+            const double distance = sampled && g_startupRelocationSent ? exploration::Distance(observed, g_arrival.target) : -1;
+            Log("[travel-start] attempt=%u elapsed=%lu ms seat=%d position_read=%d zone=%s previous_distance=%.1f m",
+                ++attempts, now - readyAt, PlayerSeatLinkState(), sampled,
+                sampled && observed.n > 0 ? observed.z[0].name : "unavailable", distance);
+            if (PlayerSeatLinkState() == 1) {
+                const bool unlinked = UnseatEntityById(LocalPlayerEntityId());
+                Log("[travel-start] native delink requested=%d; retry after streaming", unlinked);
+            } else if (PlayerSeatLinkState() == 0) {
+                const char* err = nullptr;
+                g_arrival = {};
+                if (g_launcherPlace[0] && g_launcherShip[0]) {
+                    // A remote ship alone does not stream its seats for the player in another
+                    // system. Move the player first; the seat job then waits for local streaming.
+                    err = GoToPlace(g_startup.place, g_startup.altitude, g_arrival.target);
+                    if (!err) {
+                        g_arrival.active = true; g_arrival.since = now;
+                        g_arrival.place = g_startup.place; g_arrival.altitude = g_startup.altitude;
+                        Log("[travel-start] player relocation requested before ship creation: %s; actual arrival pending", g_startup.place.entity);
+                    }
+                    if (!err) {
+                        g_startupRelocationSent = true;
+                        SetMenuStatus("Запрошен переход к %s. Проверяю прибытие; корабль будет создан после переноса.", g_startup.place.name);
+                        return;
+                    }
+                }
+                else if (g_startup.mode == 1) err = GoToPlace(g_startup.place, g_startup.altitude, g_arrival.target);
+                else { g_arrival.target = g_startup.spot; err = GoToSpot(g_startup.spot, now, "startup"); }
+                if (!err) {
+                    g_startupRelocationSent = true; g_arrival.active = true; g_arrival.since = now;
+                    g_arrival.place = g_startup.place; g_arrival.altitude = g_startup.altitude;
+                    if (g_startup.mode == 2) { strcpy_s(g_arrival.place.name, "сохранённая стартовая точка"); strcpy_s(g_arrival.place.entity, "startup.spot"); }
+                    Log("[travel-start] request sent mode=%d; actual arrival pending", g_startup.mode);
+                    SetMenuStatus("Перемещение в стартовую точку отправлено. Проверяю прибытие…");
+                } else { Log("[travel-start] waiting: %s", err); SetMenuStatus("Ожидаю стартовую точку: %s", err); }
+            }
+        }
+    }
+    CheckArrival(now);
     StepScan(now);
 }
+

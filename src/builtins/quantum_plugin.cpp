@@ -115,15 +115,16 @@ sco_result QuantumLoad(const sco_api* api, sco_plugin* self) {
         "Teleports you to a planet, moon, station or other place from the Travel tab", Travel, travel, 2);
     if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, kCap, "quantum.bookmark", "Go to saved spot",
         "Teleports you to one of the Travel tab's saved spots", Bookmark, mark, 1);
-    if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, kCap, "quantum.save_bookmark", "Save this spot",
+    if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, kCap, "quantum.save_bookmark", "Сохранить точку",
         "Saves where you are as a named spot in the Travel tab", SaveBookmark, save, 1);
     if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, kCap, "quantum.scan", "Scan places",
         "Lists everything the game has loaded and writes it to locations_found.txt", Scan);
     if (r == SCO_OK) r = api->subscribe(self, "tick", OnTick, nullptr);
     if (r != SCO_OK) return r;   // the host releases what was registered
     g_quantumStore.Open(api, self);   // before the first tick, which loads the saved spots
+    Travel_LoadStartup();
     // Its page of the menu (and keys), through sco.ui; the menu shell draws it (tabs.h).
-    RegisterBuiltinTab(api, self, "quantum.travel", "Travel", kTabTravel, DrawTravelTab);
+    RegisterBuiltinTab(api, self, "quantum.travel", "Перемещение", kTabTravel, DrawTravelTab);
     g_ticking = true;
     return SCO_OK;
 }

@@ -223,9 +223,9 @@ static const char* StateName(int s) {
 }
 
 static const char* ReasonName(int r) {
-    static const char* const names[] = { "None", "TargetTooClose", "TargetTooFar", "SolarObstruction", "QuantumObstruction",
+    static const char* const names[] = { "Нет", "TargetTooClose", "TargetTooFar", "SolarObstruction", "QuantumObstruction",
                                          "MovingBackwards", "OutOfFuel", "GroupNotReady", "GroupHasObstruction", "NavpointBlocked",
-                                         "RotationNotAligned", "RotationUnstable", "BlockedByEvent", "LandingGear", "Unknown" };
+                                         "RotationNotAligned", "RotationUnstable", "BlockedByEvent", "LandingGear", "Неизвестно" };
     return r >= 0 && r < 15 ? names[r] : "none";
 }
 
@@ -478,11 +478,11 @@ bool QuantumBoostReady() {
 }
 
 void LogQuantum() {
-    if (g_pakEnabled) Log("[+] new quantum drive: game data loader hooked (pack %s applies as Game2.dcb loads)", kPackName);
+    if (g_pakEnabled) Log("[+] Новый квантовый двигатель: подключён загрузчик данных (пакет %s применяется при загрузке Game2.dcb)", kPackName);
     else              Log("[!] new quantum drive: game data loader not hooked (%s)", g_notHooked);
     const bool audio = g_audioSystem && g_handleValid;
     if (QuantumBoostReady())
-        Log("[+] quantum boost: hold Caps Lock, or NAV mode + hold left mouse");
+        Log("[+] Квантовое ускорение: удерживайте Caps Lock или левую кнопку мыши в режиме NAV");
     else
         Log("[!] quantum boost: input hook %s, drive hook %s, drive input %s, effects guard %s, charge hook %s, audio %s, effect warm-up %s",
             g_inputHooked ? "ok" : "MISSING", g_startUseHooked ? "ok" : "MISSING", g_driveInput ? "ok" : "MISSING",

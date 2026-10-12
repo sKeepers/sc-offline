@@ -12,6 +12,8 @@
 #include "cvars.h"
 #include "hooks.h"
 #include "spawner.h"
+#include "pad_occupancy.h"
+#include "sco/status.h"
 #include "teleport.h"
 #include "builtins/mover.h"
 #include "sco/caps.h"
@@ -80,14 +82,14 @@ struct FeatureState {
     char        why[160];
 };
 FeatureState g_features[kFeatureCount] = {
-    { "asop.terminal", "ship terminal open (rc1)", "the terminal loads its ship list", false, "" },
-    { "asop.caller", "ship terminal requests (rc2)", "the terminal's remote methods find you", false, "" },
-    { "asop.list", "ship terminal list (rc4, rc15)", "stored and retrieved ships are listed as such", false, "" },
-    { "asop.deliver", "ship terminal Deliver (rc3)", "Deliver stores the ship at the station", false, "" },
-    { "asop.claim_timeout", "ship terminal claim timeout (rc5)", "\"Awaiting Delivery\" lasts 8 s", false, "" },
-    { "asop.retrieve", "ship terminal Retrieve (rc6, rc12, rc14-rc18)", "Retrieve brings the ship up on the hangar lift", false, "" },
-    { "hangar.lift", "hangar ship lift (rc13)", "the lift lowers, takes the ship and raises it", false, "" },
-    { "atc.store", "hangar terminal Store (rc19)", "Store lowers the lift and stores the ship", false, "" },
+    { "asop.terminal", "Открытие терминала кораблей (rc1)", "терминал загружает список кораблей", false, "" },
+    { "asop.caller", "Запросы терминала кораблей (rc2)", "методы терминала определяют игрока", false, "" },
+    { "asop.list", "Список кораблей терминала (rc4, rc15)", "отображаются статусы хранения и выдачи", false, "" },
+    { "asop.deliver", "Доставка корабля в терминале (rc3)", "команда Deliver запрашивает хранение на станции", false, "" },
+    { "asop.claim_timeout", "Ожидание доставки корабля (rc5)", "статус ожидания доставки действует 8 секунд", false, "" },
+    { "asop.retrieve", "Выдача корабля в терминале (rc6, rc12, rc14–rc18)", "корабль поднимается на платформе ангара", false, "" },
+    { "hangar.lift", "Подъёмник корабля в ангаре (rc13)", "платформа опускается, принимает корабль и поднимается", false, "" },
+    { "atc.store", "Хранение корабля через терминал ангара (rc19)", "команда Store опускает платформу и запрашивает хранение", false, "" },
 };
 bool g_enabled = false;    // sc-offline.ini asop
 bool g_resolved = false;   // ResolveFleetApi ran
@@ -214,6 +216,7 @@ std::vector<StationLocation> g_stations;
 std::vector<LiftComponent>   g_liftComponents;
 std::vector<SpawnedVehicle>  g_spawnedVehicles;
 std::vector<PadMove>         g_padMoves;
+PadOccupancy                g_padOccupancy; // game thread only; includes ships outside ASOP
 std::vector<StoredView>      g_storedView;
 std::vector<RetrievedView>   g_retrievedView;
 std::vector<uint64_t>        g_pendingPadSpawnIds;     // published: stored ids with a pad spawn not yet done
@@ -950,6 +953,24 @@ void RunPadSpawns(DWORD now) {
             p.manager = On(kLift) ? FindLiftManager(p.pad, padName, sizeof(padName)) : 0;
             Log("[asop] Retrieve %s: pad %s, lift 0x%llX", cls ? cls : "?", padName[0] ? padName : "?", static_cast<unsigned long long>(p.manager));
         }
+        if (const uint64_t occupied = g_padOccupancy.BlockedBy(p.pad, EntityAlive)) {
+            Log("[!] [asop] Retrieve %s blocked: pad 0x%llX still holds live ship 0x%llX; no platform spawn",
+                cls ? cls : "?", static_cast<unsigned long long>(p.pad), static_cast<unsigned long long>(occupied));
+            sco::Status("Выдача отменена: на площадке остаётся предыдущий корабль. Хранение должно убрать его из мира прежде, чем выдавать следующий.");
+            auto stored = std::find_if(g_stored.begin(), g_stored.end(), [&p](const StoredShip& s) { return s.vehicle == p.stored; });
+            if (stored != g_stored.end()) {
+                const uintptr_t atc = AtcDataManager(stored->atc);
+                if (!atc || !CallSpawnCancelled(atc, p.stored))
+                    Log("[!] [asop] occupied pad: request cancellation not confirmed");
+            }
+            {
+                Lock l;
+                g_retrieving.erase(std::remove(g_retrieving.begin(), g_retrieving.end(), p.stored), g_retrieving.end());
+            }
+            RequestRefresh(now + kRefreshAfterStoreMs);
+            g_padSpawns.erase(g_padSpawns.begin() + i);
+            continue;
+        }
         if (p.manager) {
             const int32_t state = LiftStateOf(p.manager);
             LogLiftState("Retrieve", p.manager, state, p.lastState);
@@ -1035,6 +1056,7 @@ void RunSpawnCancels() {
 }
 
 void ApplyPadMoves(const std::vector<PadMove>& moves, DWORD now) {
+    for (const PadMove& m : moves) g_padOccupancy.Observe(m.pad, m.vehicle);
     for (const PadMove& m : moves)
         for (RetrievedShip& r : g_retrieved) {
             if (r.vehicle != m.vehicle || (r.pad == m.pad && r.atc == m.atc)) continue;
@@ -1522,7 +1544,7 @@ void LogFleet() {
         return;
     }
     for (const FeatureState& f : g_features)
-        if (f.on) Log("[+] %s: ready (%s)", f.title, f.ready);
+        if (f.on) Log("[+] %s: доступно (%s)", f.title, f.ready);
         else      Log("[!] %s: %s", f.title, f.why);
 }
 
@@ -1550,8 +1572,8 @@ uint64_t Fleet_RetrievedShipOwner(uint64_t vehicle) {
 void Fleet_OnPadVehicle(uint64_t atcEntity, uint64_t padEntity, uint64_t vehicle) {
     if (!g_enabled || !atcEntity || !padEntity || !vehicle) return;
     Lock l;
-    if (Contains(g_retrievedView, [vehicle](const RetrievedView& r) { return r.vehicle == vehicle; }))
-        g_padMoves.push_back({ atcEntity, padEntity, vehicle });
+    // Landing a menu-created ship must also reserve the physical platform.
+    g_padMoves.push_back({ atcEntity, padEntity, vehicle });
 }
 
 void ProcessFleet(DWORD now) {

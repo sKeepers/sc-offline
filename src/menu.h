@@ -1,7 +1,8 @@
 #pragma once
+#include "../plugins/exploration/local_api.h"
 #include <windows.h>
 
-struct MenuShip { char name[64]; int size; float length; };
+
 
 int             Menu_ShipCount();
 const MenuShip* Menu_Ships();

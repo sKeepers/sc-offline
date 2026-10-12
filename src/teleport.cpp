@@ -1,5 +1,6 @@
 #include "teleport.h"
 #include "menu.h"
+#include "spawner.h"
 #include "builtins/builtin_store.h"
 #include "sco/game/teleport.h"
 #include "sco/signatures.h"
@@ -133,12 +134,12 @@ int ReadZoneChain(uintptr_t zone, ZoneFrame* out, int max) {
 static const char* CaptureSpot(Spot& s, double world[3]) {
     __try {
         uintptr_t actor, entity;
-        if (!GetLocalPlayer(actor, entity)) return "player not spawned";
+        if (!GetLocalPlayer(actor, entity)) return "персонаж ещё не появился";
         const uintptr_t zone = VCall<uintptr_t>(entity, 0x6B8);
-        if (!zone) return "not in a zone";
+        if (!zone) return "персонаж вне зоны";
         double local[3];
         Vec3Out(entity, 0x2B8, local);
-        if (!PositionLooksValid(local)) return "position out of range";
+        if (!PositionLooksValid(local)) return "координаты вне допустимого диапазона";
         LocalToWorld(zone, local, world);
         s.n = 0;
         for (uintptr_t z = zone; z && s.n < kMaxZoneDepth; z = ZoneParent(z)) {
@@ -152,7 +153,7 @@ static const char* CaptureSpot(Spot& s, double world[3]) {
         }
         return s.n ? nullptr : "zone has no name";
     } __except (EXCEPTION_EXECUTE_HANDLER) {
-        return "fault while reading player";
+        return "ошибка чтения персонажа";
     }
 }
 
@@ -164,9 +165,19 @@ static int FindSavedZone(const Spot& s, uintptr_t entity, uintptr_t& zoneOut) {
         chain[n] = z;
         names[n++] = ZoneName(z);
     }
-    for (int i = 0; i < s.n; ++i)
+    for (int i = 0; i < s.n; ++i) {
         for (int k = 0; k < n; ++k)
             if (names[k] && strcmp(names[k], s.z[i].name) == 0) { zoneOut = chain[k]; return i; }
+        // Resolve a stable loaded zone host by name, never a persisted streaming ID.
+        uintptr_t host = 0; uint64_t id = 0;
+        if (_strnicmp(s.z[i].name, "SolarSystem", 11) != 0 && FindEntityByNameEx(s.z[i].name, host, id)) {
+            const uintptr_t z = VCall<uintptr_t>(host, 0x6E0);
+            const char* name = z ? ZoneName(z) : nullptr;
+            if (name && !strcmp(name, s.z[i].name) && SystemZoneOf(z) && ZoneId(z) && ZoneFromId(ZoneId(z)) == z) {
+                zoneOut = z; return i;
+            }
+        }
+    }
     return -1;
 }
 
@@ -180,15 +191,15 @@ static int SavedZoneLevel(const Spot& s) {
 }
 
 static const char* TeleportToSpot(const Spot& s, int& level) {
-    if (!s.n) return "no saved spot";
+    if (!s.n) return "нет сохранённой точки";
     __try {
         uintptr_t actor, entity, zone = 0;
-        if (!GetLocalPlayer(actor, entity)) return "player not spawned";
+        if (!GetLocalPlayer(actor, entity)) return "персонаж ещё не появился";
         level = FindSavedZone(s, entity, zone);
-        if (level < 0) return "you're not in any of the saved spot's zones (different planet/system?)";
+        if (level < 0) return "точка в другой зоне, на другой планете или в другой системе";
         if (level > 0 && !ZoneParent(zone)) return kOtherSystem;
         const uint64_t zoneId = ZoneId(zone);
-        if (!zoneId || ZoneFromId(zoneId) != zone) return "zone id lookup mismatch";
+        if (!zoneId || ZoneFromId(zoneId) != zone) return "ID зоны не соответствует найденной зоне";
         const double* local = s.z[level].local;
         double world[3];
         LocalToWorld(zone, local, world);
@@ -201,31 +212,31 @@ static const char* TeleportToSpot(const Spot& s, int& level) {
         reinterpret_cast<float*>(params + 0x60)[3] = 1.0f;
         params[0x7D] = level > 0;
         const uintptr_t comp = VCall<uintptr_t>(actor, 0x9D8);
-        if (!comp) return "no teleport component";
+        if (!comp) return "компонент телепортации не найден";
         VCall<void>(comp, 0x158, params);
         return nullptr;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
-        return "fault while teleporting";
+        return "ошибка телепортации";
     }
 }
 
 const char* TeleportToEntity(uint64_t entityId, double up) {
     __try {
         uintptr_t actor, entity;
-        if (!GetLocalPlayer(actor, entity)) return "player not spawned";
+        if (!GetLocalPlayer(actor, entity)) return "персонаж ещё не появился";
         const uintptr_t es = *g_tp.entitySystem;
         const uintptr_t target = es && entityId ? VCall<uintptr_t>(es, 0x120, entityId) : 0;
-        if (!target) return "no such entity here (not streamed in?)";
+        if (!target) return "объект не найден или ещё не загружен";
         const uintptr_t zone = VCall<uintptr_t>(target, 0x6B8);
-        if (!zone) return "the entity isn't in a zone";
+        if (!zone) return "объект вне зоны";
         const uint64_t zoneId = ZoneId(zone);
-        if (!zoneId || ZoneFromId(zoneId) != zone) return "zone id lookup mismatch";
+        if (!zoneId || ZoneFromId(zoneId) != zone) return "ID зоны не соответствует найденной зоне";
         double local[3];
         Vec3Out(target, 0x2B8, local);
         const double r = sqrt(Dot(local, local));
         if (r > 100000.0) for (int i = 0; i < 3; ++i) local[i] += local[i] / r * up;
         else local[2] += up;
-        if (!PositionLooksValid(local)) return "position out of range";
+        if (!PositionLooksValid(local)) return "координаты вне допустимого диапазона";
         double world[3];
         LocalToWorld(zone, local, world);
         alignas(16) uint8_t params[0x80] = {};
@@ -237,13 +248,13 @@ const char* TeleportToEntity(uint64_t entityId, double up) {
         reinterpret_cast<float*>(params + 0x60)[3] = 1.0f;
         params[0x7D] = 1;
         const uintptr_t comp = VCall<uintptr_t>(actor, 0x9D8);
-        if (!comp) return "no teleport component";
+        if (!comp) return "компонент телепортации не найден";
         VCall<void>(comp, 0x158, params);
         Log("[tp] to entity %llu in '%s' (%.0f, %.0f, %.0f)", static_cast<unsigned long long>(entityId), ZoneName(zone),
             local[0], local[1], local[2]);
         return nullptr;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
-        return "fault while teleporting";
+        return "ошибка телепортации";
     }
 }
 
@@ -454,16 +465,18 @@ uintptr_t SystemZoneOf(uintptr_t zone) {
 }
 
 const char* TeleportIntoZone(uintptr_t zone, const double local[3]) {
-    if (!zone) return "no zone";
-    if (!PositionLooksValid(local)) return "position out of range";
+    if (!zone) return "зона не найдена";
+    if (!PositionLooksValid(local)) return "координаты вне допустимого диапазона";
     __try {
         uintptr_t actor, entity;
-        if (!GetLocalPlayer(actor, entity)) return "player not spawned";
+        if (!GetLocalPlayer(actor, entity)) return "персонаж ещё не появился";
         const uintptr_t mine = SystemZoneOf(VCall<uintptr_t>(entity, 0x6B8));
         const uintptr_t theirs = SystemZoneOf(zone);
-        if (!theirs || (mine && mine != theirs)) return "that place is in another star system - travel to that system first";
+        if (!theirs) return "целевая система не загружена; используйте boot_map = PU_All";
+        if (PlayerSeatLinkState() != 0) return "сначала выйдите из кровати или кресла";
+        if (mine && mine != theirs) Log("[tp] cross-system request to loaded zone '%s'", ZoneName(zone));
         const uint64_t zoneId = ZoneId(zone);
-        if (!zoneId || ZoneFromId(zoneId) != zone) return "zone id lookup mismatch";
+        if (!zoneId || ZoneFromId(zoneId) != zone) return "ID зоны не соответствует найденной зоне";
         double world[3];
         LocalToWorld(zone, local, world);
         alignas(16) uint8_t params[0x80] = {};
@@ -475,17 +488,18 @@ const char* TeleportIntoZone(uintptr_t zone, const double local[3]) {
         reinterpret_cast<float*>(params + 0x60)[3] = 1.0f;
         params[0x7D] = 1;
         const uintptr_t comp = VCall<uintptr_t>(actor, 0x9D8);
-        if (!comp) return "no teleport component";
+        if (!comp) return "компонент телепортации не найден";
         VCall<void>(comp, 0x158, params);
         Log("[tp] into zone '%s' at (%.0f, %.0f, %.0f)", ZoneName(zone), local[0], local[1], local[2]);
         return nullptr;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
-        return "fault while teleporting";
+        return "ошибка телепортации";
     }
 }
 
 static bool g_spotLoadPending = false;   // LoadSavedSpot ran; the first TeleportTick loads the spot
 static bool g_startingOverDaymar = false;
+void SuppressSavedSpotAutostart() { g_startingOverDaymar = true; g_autoTeleportPending = false; }
 
 // Called before the host kit starts, so the built-in's storage isn't open yet: the spot is loaded
 // on the first TeleportTick, after the teleport built-in has loaded (or failed to).

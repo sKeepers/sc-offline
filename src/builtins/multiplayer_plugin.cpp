@@ -58,6 +58,10 @@ const sco_plugin_info kInfo = {
 constexpr const char* kPoseChannel = "multiplayer.pose";
 constexpr const char* kSpawnChannel = "multiplayer.spawn";
 constexpr const char* kDespawnChannel = "multiplayer.despawn";
+constexpr const char* kHelloChannel = "multiplayer.hello";
+constexpr const char* kNetworkBuild = SCO_VERSION " RU Local/net-2";
+uint64_t g_lastHello = 0;
+uint64_t g_badPoses = 0;
 // An unarmed civilian: a ghost that never draws a weapon. Any human class in npcs.txt works.
 constexpr const char* kDefaultAvatar = "PU_Human-Microtech-DeskWorker-Male-DistroHub_Civilian_01";
 constexpr uint64_t kPoseEveryMs = 100;      // ~10 Hz
@@ -72,7 +76,7 @@ constexpr size_t   kMaxRemotePeers = SCO_NET_MAX_PEERS - 1;
 MpSettings g_set;
 std::vector<sco::net::Cidr> g_allow;
 std::string g_allowText;
-char g_stateText[96] = "Not in a session";
+char g_stateText[96] = "Сессия не создана";
 char g_reason[160] = "";
 
 // ---- settings -----------------------------------------------------------------------------------
@@ -95,6 +99,7 @@ void LoadSettings() {
     g_set.joinPort = sco::net::kDefaultPort;
     strcpy_s(g_set.avatarClass, kDefaultAvatar);
     g_set.showShips = true;
+    g_set.diagnosticOnly = true;
     if (!g_store) return;
     std::string s;
     if (g_store.S().Get("name", s) == SCO_OK && !s.empty()) CopyText(g_set.name, sizeof(g_set.name), s);
@@ -104,6 +109,7 @@ void LoadSettings() {
     g_set.hostPort = ReadPort("host_port", g_set.hostPort);
     g_set.joinPort = ReadPort("join_port", g_set.joinPort);
     int64_t v = 0;
+    if (g_store.GetInt("diagnostic_only", v) == SCO_OK) g_set.diagnosticOnly = v != 0;
     if (g_store.GetInt("show_ships", v) == SCO_OK) g_set.showShips = v != 0;
     if (g_store.GetInt("remember_passphrase", v) == SCO_OK) g_set.rememberPass = v != 0;
     if (g_set.rememberPass && g_store.S().Get("passphrase", s) == SCO_OK)
@@ -134,6 +140,9 @@ struct Peer {
     char     avatarCls[64];   // as announced; "" before an announcement
     char     shipCls[64];     // as announced; "" with no ship
     bool     avatarGone;      // they announced their avatar is gone
+    mpwire::Hello hello{};
+    bool helloKnown = false;
+    uint64_t posesReceived = 0;
     Sample   s0, s1;          // the last two poses, s1 the newest
     Ghost    avatar, ship;
 };
@@ -302,9 +311,9 @@ void UpdateGhost(Peer& p, bool ship, const LocalChain& c, uint64_t now) {
     if (ship) wanted = aboard && g_set.showShips && p.shipCls[0];
     else wanted = p.s1.valid && !p.avatarGone && !(aboard && p.ship.st == GhostState::Alive);
     if (!wanted) {
-        if (g.id) RemoveGhost(p, g, ship, ship ? "no ship" : "aboard their ship");
+        if (g.id) RemoveGhost(p, g, ship, ship ? "no ship" : "в своём корабле");
         g.st = GhostState::None;
-        Note(g, ship ? "" : (aboard ? "aboard their ship" : (p.avatarGone ? "gone" : "waiting for a position")));
+        Note(g, ship ? "" : (aboard ? "в своём корабле" : (p.avatarGone ? "покинул мир" : "ожидаю позицию")));
         return;
     }
     const char* cls = ship ? p.shipCls : AvatarClassFor(p);
@@ -314,7 +323,7 @@ void UpdateGhost(Peer& p, bool ship, const LocalChain& c, uint64_t now) {
     const bool placed = GhostPose(p, ship, c, now, &zone, pos, rot);
     const double distance = placed ? DistanceFromYou(c, zone, pos) : 0;
     char farNote[96];
-    snprintf(farNote, sizeof(farNote), "not shown: %.0f km away", distance / 1000.0);
+    snprintf(farNote, sizeof(farNote), "не показан: расстояние %.0f км", distance / 1000.0);
     switch (g.st) {
         case GhostState::Failed:
             if (now - g.since < kRetryMs) return;
@@ -323,7 +332,7 @@ void UpdateGhost(Peer& p, bool ship, const LocalChain& c, uint64_t now) {
         case GhostState::Waiting: {
             if (!placed) {
                 g.st = GhostState::Waiting;
-                Note(g, "not shown: they're in a zone you haven't loaded (%s)", WhereText(p));
+                Note(g, "зона игрока здесь не загружена (%s)", WhereText(p));
                 return;
             }
             if (distance > kShowWithinM) {
@@ -334,7 +343,7 @@ void UpdateGhost(Peer& p, bool ship, const LocalChain& c, uint64_t now) {
             if (!g_spawn->class_exists(cls)) {
                 g.st = GhostState::Failed;
                 g.since = now;
-                Note(g, "'%s' isn't a spawnable class on this game build", cls);
+                Note(g, "класс '%s' недоступен в этой версии игры", cls);
                 return;
             }
             const double offset[3] = { 0, 0, ship ? 100.0 : 2.0 };
@@ -343,14 +352,14 @@ void UpdateGhost(Peer& p, bool ship, const LocalChain& c, uint64_t now) {
             if (err) {
                 g.st = GhostState::Failed;
                 g.since = now;
-                Note(g, "couldn't spawn: %s", err);
+                Note(g, "не удалось создать копию: %s", err);
                 return;
             }
             g.id = id;
             strcpy_s(g.cls, cls);
             g.st = GhostState::Streaming;
             g.since = now;
-            Note(g, "streaming in");
+            Note(g, "загружается");
             Log("[multiplayer] spawned %s's %s ghost %llu (%s)", p.name, ship ? "ship" : "avatar",
                 static_cast<unsigned long long>(id), cls);
             return;
@@ -361,7 +370,7 @@ void UpdateGhost(Peer& p, bool ship, const LocalChain& c, uint64_t now) {
                     RemoveGhost(p, g, ship, "didn't stream in");
                     g.st = GhostState::Failed;
                     g.since = now;
-                    Note(g, "didn't stream in within 60 s; trying again later");
+                    Note(g, "не загрузился за 60 с; повтор позже");
                 }
                 return;
             }
@@ -375,7 +384,7 @@ void UpdateGhost(Peer& p, bool ship, const LocalChain& c, uint64_t now) {
                 g.st = GhostState::Failed;          // waits kRetryMs before spawning again
                 g.since = now;
                 if (!ship) sco::net::SetPeerEntity(p.peer, 0);
-                Note(g, "streamed out; shown again within 30 s when they're near");
+                Note(g, "выгружен; повтор через 30 с, когда игрок рядом");
                 return;
             }
             if (distance > kShowWithinM) {
@@ -387,9 +396,9 @@ void UpdateGhost(Peer& p, bool ship, const LocalChain& c, uint64_t now) {
             if (placed) {
                 if (g_spawn->set_entity_transform(g_self, g.id, zone, pos, rot)) {
                     g.st = GhostState::Alive;
-                    Note(g, "shown");
+                    Note(g, "отображается");
                 } else {
-                    Note(g, "the game refused the move (mod.log says why)");
+                    Note(g, "игра отклонила перемещение; см. mod.log");
                 }
             } else {
                 if (g.st != GhostState::Parked) Park(g);
@@ -503,14 +512,31 @@ void SendPose(uint64_t now) {
     if (n) Send(kPoseChannel, buf, n, "pose");
 }
 
+void SendHello() {
+    mpwire::Hello h{};strcpy_s(h.build,kNetworkBuild);
+    uint8_t bytes[mpwire::kMaxHello]{};
+    const auto n=mpwire::EncodeHello(h,bytes,sizeof(bytes));
+    if(n)Send(kHelloChannel,bytes,n,"compatibility");
+    g_lastHello=NowMs();
+}
+void OnHello(uint64_t from,const void* bytes,uint32_t len,void*) {
+    mpwire::Hello hello{};
+    if(!mpwire::DecodeHello(bytes,len,hello))return;
+    Peer* peer=FindOrAddPeer(from);if(!peer)return;
+    if(!peer->helloKnown || peer->hello.poseVersion!=hello.poseVersion || strcmp(peer->hello.build,hello.build))
+        Log("[multiplayer] peer=%llu network-build=%s pose-protocol=%u compatible=%d",from,hello.build,hello.poseVersion,hello.poseVersion==mpwire::kVersion);
+    peer->hello=hello;peer->helloKnown=true;
+}
+
 // ---- receiving (game thread, from the host tick) ------------------------------------------------
 
 void OnPose(uint64_t from, const void* buf, uint32_t len, void*) {
     mpwire::Pose p;
-    if (!mpwire::DecodePose(buf, len, p)) return;   // malformed: dropped
+    if (!mpwire::DecodePose(buf, len, p)) { ++g_badPoses; return; }   // malformed: dropped
     Peer* peer = FindOrAddPeer(from);
     if (!peer) return;
     if (peer->s1.valid && static_cast<int32_t>(p.seq - peer->s1.p.seq) <= 0) return;   // late or repeated
+    ++peer->posesReceived;
     peer->s0 = peer->s1;
     peer->s1.valid = true;
     peer->s1.at = NowMs();
@@ -549,10 +575,13 @@ void OnNetState(const char*, const void* data, void*) {
     if (!e || e->size < sizeof(sco_net_state_event)) return;
     if (e->active) {
         g_reason[0] = 0;
+        g_badPoses = 0;
+        g_lastHello = 0;
         g_announcedAvatar[0] = 0;
         g_announcedShip[0] = 0;
         sco::net::SetPeerEntity(g_net->self_peer(), mpwire::SessionId(g_net->self_peer(), kAvatar));
         Announce(true);
+        SendHello();
         Log("[multiplayer] session up: you are player %llu", static_cast<unsigned long long>(g_net->self_peer()));
     } else {
         strncpy_s(g_reason, e->reason, _TRUNCATE);
@@ -567,6 +596,7 @@ void OnNetPeer(const char*, const void* data, void*) {
     const uint64_t id = e->peer.peer_id;
     if (e->what == SCO_NET_PEER_JOINED) {
         if (Peer* p = FindOrAddPeer(id)) Log("[multiplayer] %s joined", p->name);
+        SendHello();
         Announce(true);   // so the newcomer learns what you are
     } else if (e->what == SCO_NET_PEER_LEFT) {
         for (size_t i = 0; i < g_peers.size(); ++i)
@@ -583,13 +613,13 @@ void OnNetPeer(const char*, const void* data, void*) {
 
 void UpdateStateText() {
     switch (sco::net::GetState()) {
-        case sco::net::State::Idle: strcpy_s(g_stateText, "Not in a session"); break;
-        case sco::net::State::Joining: strcpy_s(g_stateText, "Joining..."); break;
+        case sco::net::State::Idle: strcpy_s(g_stateText, "Сессия не создана"); break;
+        case sco::net::State::Joining: strcpy_s(g_stateText, "Подключение…"); break;
         case sco::net::State::Joined:
-            snprintf(g_stateText, sizeof(g_stateText), "Joined as player %llu", static_cast<unsigned long long>(g_net->self_peer()));
+            snprintf(g_stateText, sizeof(g_stateText), "Подключено: игрок %llu", static_cast<unsigned long long>(g_net->self_peer()));
             break;
         case sco::net::State::Hosting:
-            snprintf(g_stateText, sizeof(g_stateText), "Hosting on UDP port %u", static_cast<unsigned>(sco::net::BoundPort()));
+            snprintf(g_stateText, sizeof(g_stateText), "Вы ведущий. Порт UDP: %u", static_cast<unsigned>(sco::net::BoundPort()));
             break;
     }
 }
@@ -601,17 +631,29 @@ void OnTick(const char*, const void*, void*) {
         return;
     }
     const uint64_t now = NowMs();
+    if(!g_lastHello || now-g_lastHello>=5000)SendHello(); // retry after channel table arrives; also advertises to new/legacy peers
     if (!g_sp || !g_spawn) return;   // the session runs (peer list) but there are no poses or ghosts
     SendPose(now);
     Announce(false);
+    if (g_set.diagnosticOnly) {
+        for (Peer& p : g_peers) {
+            RemovePeerGhosts(p,"diagnostic-only mode");
+            Note(p.avatar,"проверка связи: копии отключены на этом ПК");
+        }
+        return; // no new NPC/ship creation, placement or parking from this mode
+    }
     if (!g_spawn->local_player_id()) return;   // not in the world yet: nothing to place ghosts by
     LocalChain c;
     ReadLocalChain(c);
     for (Peer& p : g_peers) {
+        if(p.helloKnown && p.hello.poseVersion!=mpwire::kVersion) {
+            RemovePeerGhosts(p,"incompatible pose protocol");
+            Note(p.avatar,"несовместимый протокол позиций");continue;
+        }
         if (p.s1.valid && now - p.s1.at > kPoseTimeoutMs) {
-            RemovePeerGhosts(p, "no position for 10 s");
+            RemovePeerGhosts(p, "нет позиций 10 секунд");
             p.s0.valid = p.s1.valid = false;
-            Note(p.avatar, "no position for 10 s");
+            Note(p.avatar, "нет позиций 10 секунд");
             continue;
         }
         UpdateGhost(p, true, c, now);    // the ship first: the avatar hides while its ship is shown
@@ -629,8 +671,8 @@ sco_result CmdStatus(const sco_arg*, uint32_t, void*, char* reply, uint32_t size
 
 sco_result CmdLeave(const sco_arg*, uint32_t, void*, char* reply, uint32_t size) {
     if (!g_net->is_active() && sco::net::GetState() == sco::net::State::Idle) {
-        snprintf(reply, size, "Not in a session");
-        return SCO_UNAVAILABLE;
+        snprintf(reply, size, "Сессия не создана");
+        return SCO_FAILED;
     }
     Mp_Leave();
     snprintf(reply, size, "Left the session");
@@ -710,6 +752,7 @@ sco_result MpLoad(const sco_api* api, sco_plugin* self) {
     sco_result r = g_net->register_channel(self, kPoseChannel, 0, static_cast<uint32_t>(mpwire::kMaxPose), OnPose, nullptr);
     if (r == SCO_OK) r = g_net->register_channel(self, kSpawnChannel, SCO_NET_RELIABLE, static_cast<uint32_t>(mpwire::kMaxSpawn), OnSpawn, nullptr);
     if (r == SCO_OK) r = g_net->register_channel(self, kDespawnChannel, SCO_NET_RELIABLE, static_cast<uint32_t>(mpwire::kDespawn), OnDespawn, nullptr);
+    if (r == SCO_OK) r = g_net->register_channel(self, kHelloChannel, SCO_NET_RELIABLE, static_cast<uint32_t>(mpwire::kMaxHello), OnHello, nullptr);
     if (r == SCO_OK) r = api->subscribe(self, "tick", OnTick, nullptr);
     if (r == SCO_OK) r = api->subscribe(self, SCO_NET_EVENT_STATE, OnNetState, nullptr);
     if (r == SCO_OK) r = api->subscribe(self, SCO_NET_EVENT_PEER, OnNetPeer, nullptr);
@@ -732,7 +775,7 @@ sco_result MpLoad(const sco_api* api, sco_plugin* self) {
         g_self = nullptr;
         return r;
     }
-    RegisterBuiltinTab(api, self, "multiplayer.session", "Multiplayer", kTabMultiplayer, DrawMultiplayerTab);
+    RegisterBuiltinTab(api, self, "multiplayer.session", "Сетевая сессия", kTabMultiplayer, DrawMultiplayerTab);
     return SCO_OK;
 }
 
@@ -766,6 +809,7 @@ void Mp_SaveSettings() {
         r = s.Put("avatar_class", std::string_view(g_set.avatarClass));
     if (r == SCO_OK) r = g_store.PutInt("host_port", g_set.hostPort);
     if (r == SCO_OK) r = g_store.PutInt("join_port", g_set.joinPort);
+    if (r == SCO_OK) r = g_store.PutInt("diagnostic_only", g_set.diagnosticOnly ? 1 : 0);
     if (r == SCO_OK) r = g_store.PutInt("show_ships", g_set.showShips ? 1 : 0);
     if (r == SCO_OK) r = g_store.PutInt("remember_passphrase", g_set.rememberPass ? 1 : 0);
     if (r == SCO_OK) {
@@ -781,17 +825,23 @@ bool Mp_InSession() { return g_net && sco::net::GetState() != sco::net::State::I
 bool Mp_GhostsReady() { return g_net && g_spawn && g_sp; }
 const char* Mp_StateText() { return g_stateText; }
 const char* Mp_LastReason() { return g_reason; }
+void Mp_Diagnostics(char* out,std::size_t size) {
+    const auto stats=sco::net::GetServiceStats();
+    snprintf(out,size,"Сетевой мод: %s; протокол позиций: %u\nUDP: %u; получено/отправлено: %llu / %llu; повторы доставки: %llu\nОтклонено: подпись %llu, версия %llu, вне разрешённой сети %llu, позиции %llu",
+        kNetworkBuild,mpwire::kVersion,sco::net::BoundPort(),stats.core.datagramsIn,stats.core.datagramsOut,stats.core.retransmits,
+        stats.core.badTag,stats.core.badVersion,stats.outOfScope,g_badPoses);
+}
 const char* Mp_AllowText() { return g_allowText.c_str(); }
 
 // The settings both Host and Join need; nullptr when they're fine.
 static const char* CheckCommon() {
-    if (!g_net) return "multiplayer is off";
-    if (sco::net::GetState() != sco::net::State::Idle) return "already in a session; leave it first";
+    if (!g_net) return "Сетевая игра выключена";
+    if (sco::net::GetState() != sco::net::State::Idle) return "Сначала отключитесь от текущей сессии";
     const size_t name = strlen(g_set.name);
-    if (name < 1 || name > SCO_NET_MAX_NAME) return "pick a name (1 to 64 characters)";
+    if (name < 1 || name > SCO_NET_MAX_NAME) return "Введите имя (от 1 до 64 байт UTF-8)";
     for (const char* c = g_set.name; *c; ++c)
-        if (static_cast<unsigned char>(*c) < 0x20) return "the name can't hold control characters";
-    if (strlen(g_set.passphrase) < 8) return "pick a passphrase of at least 8 characters";
+        if (static_cast<unsigned char>(*c) < 0x20) return "В имени недопустимы управляющие символы";
+    if (strlen(g_set.passphrase) < 8) return "Введите пароль не короче 8 символов";
     return nullptr;
 }
 
@@ -804,15 +854,15 @@ static sco::net::Scope MakeScope() {
 static const char* ResultText(sco::Result r) {
     switch (r) {
         case sco::Result::Ok: return nullptr;
-        case sco::Result::Failed: return "couldn't open the UDP port (in use? mod.log says why)";
-        case sco::Result::BadArg: return "refused: check the address (LAN or multiplayer_allow only), name and passphrase";
-        default: return "sco.net isn't running";
+        case sco::Result::Failed: return "Не удалось открыть UDP-порт. Возможно, он занят; подробности в mod.log";
+        case sco::Result::BadArg: return "Проверьте адрес, имя и пароль; адрес должен входить в локальную сеть или multiplayer_allow";
+        default: return "Сетевой сервис недоступен";
     }
 }
 
 const char* Mp_Host() {
     if (const char* err = CheckCommon()) return err;
-    if (g_set.hostPort < 1024 || g_set.hostPort > 65535) return "the port must be 1024 to 65535";
+    if (g_set.hostPort < 1024 || g_set.hostPort > 65535) return "Порт должен быть от 1024 до 65535";
     sco::net::HostOptions h;
     h.port = static_cast<uint16_t>(g_set.hostPort);
     h.passphrase = g_set.passphrase;
@@ -826,11 +876,11 @@ const char* Mp_Host() {
 
 const char* Mp_Join() {
     if (const char* err = CheckCommon()) return err;
-    if (g_set.joinPort < 1024 || g_set.joinPort > 65535) return "the port must be 1024 to 65535";
+    if (g_set.joinPort < 1024 || g_set.joinPort > 65535) return "Порт должен быть от 1024 до 65535";
     sco::net::Endpoint ep;
     if (!sco::net::ParseAddress(g_set.joinAddress, static_cast<uint16_t>(g_set.joinPort), &ep))
-        return "enter the host's IPv4 address, like 192.168.1.20";
-    if (!sco::net::InScope(MakeScope(), ep)) return "that address isn't on your LAN or in multiplayer_allow";
+        return "Введите IPv4-адрес ведущего в VPN или локальной сети";
+    if (!sco::net::InScope(MakeScope(), ep)) return "Адрес не входит в локальную сеть или multiplayer_allow. Добавьте диапазон вашей VPN в настройки";
     sco::net::JoinOptions j;
     j.address = g_set.joinAddress;
     j.port = static_cast<uint16_t>(g_set.joinPort);
@@ -855,7 +905,7 @@ void Mp_Leave() {
 
 int Mp_PeerCount() { return g_net && g_net->is_active() ? static_cast<int>(g_peers.size()) + 1 : 0; }
 
-static const char* GhostText(const Ghost& g) { return g.note[0] ? g.note : "waiting for a position"; }
+static const char* GhostText(const Ghost& g) { return g.note[0] ? g.note : "ожидаю позицию"; }
 
 bool Mp_Peer(int index, MpPeerView& out) {
     if (index < 0 || index >= Mp_PeerCount()) return false;
@@ -867,13 +917,17 @@ bool Mp_Peer(int index, MpPeerView& out) {
         out.peer = id;
         out.name = self;
         out.self = true;
-        out.avatar = "you";
+        out.avatar = "вы";
+        out.build=kNetworkBuild;out.versionKnown=true;out.poseVersion=mpwire::kVersion;
         out.ship = g_shipCls;
         out.sessionId = mpwire::SessionId(id, kAvatar);
         return true;
     }
     const Peer& p = g_peers[static_cast<size_t>(index - 1)];
     out.peer = p.peer;
+    out.build=p.helloKnown?p.hello.build:"версия не получена";
+    out.versionKnown=p.helloKnown;out.poseVersion=p.hello.poseVersion;
+    out.gotPose=p.s1.valid;out.poseAgeMs=p.s1.valid?NowMs()-p.s1.at:0;out.posesReceived=p.posesReceived;
     out.name = p.name;
     out.avatar = GhostText(p.avatar);
     out.ship = p.shipCls[0] ? (p.ship.note[0] ? p.ship.note : p.shipCls) : "";
@@ -883,9 +937,9 @@ bool Mp_Peer(int index, MpPeerView& out) {
 
 const char* Mp_GoTo(uint64_t peer) {
     const Peer* p = FindPeer(peer);
-    if (!p) return "no such player";
+    if (!p) return "Игрок не найден";
     const Ghost& g = p->ship.st == GhostState::Alive ? p->ship : p->avatar;
-    if (!g.id || g.st != GhostState::Alive) return "their ghost isn't shown here (see the list)";
+    if (!g.id || g.st != GhostState::Alive) return "Игрок пока не отображается здесь; проверьте его зону и обмен позициями";
     return TeleportToEntity(g.id, g.id == p->ship.id ? 20.0 : 1.0);
 }
 

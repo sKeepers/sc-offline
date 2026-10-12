@@ -26,6 +26,18 @@ endif()
 
 project(sc-offline LANGUAGES C CXX)
 
+add_executable(localization-test EXCLUDE_FROM_ALL tools/localization_test.cpp)
+target_compile_features(localization-test PRIVATE cxx_std_17)
+target_compile_options(localization-test PRIVATE /utf-8 /UNDEBUG)
+
+# Small native test of the actual save validator and checkpoint rules, without the game.
+add_executable(exploration-state-test EXCLUDE_FROM_ALL tools/exploration_state_test.cpp)
+add_executable(list-label-test EXCLUDE_FROM_ALL tools/list_label_test.cpp)
+target_compile_features(list-label-test PRIVATE cxx_std_17)
+target_compile_options(list-label-test PRIVATE /utf-8 /UNDEBUG)
+target_include_directories(exploration-state-test PRIVATE external/sco-core/include)
+target_compile_options(exploration-state-test PRIVATE /utf-8)
+
 if(NOT MSVC)
   message(FATAL_ERROR "sc-offline builds with MSVC only (tools/check.sh parses it elsewhere)")
 endif()
@@ -47,6 +59,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 foreach(lang C CXX)
   string(REGEX REPLACE "[/-]D *(WIN32|_WINDOWS)( |$)" "" CMAKE_${lang}_FLAGS "${CMAKE_${lang}_FLAGS}")
 endforeach()
+add_executable(local-plugin-test EXCLUDE_FROM_ALL tools/local_plugin_test.cpp)
+target_include_directories(local-plugin-test PRIVATE external/sco-core/include src/third_party/imgui)
+target_compile_definitions(local-plugin-test PRIVATE ${SCO_COMMON_DEFINES})
+target_compile_options(local-plugin-test PRIVATE ${SCO_COMMON_OPTIONS} /UNDEBUG)
+target_link_libraries(local-plugin-test PRIVATE imgui)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -71,7 +88,7 @@ add_subdirectory(external/sco-core EXCLUDE_FROM_ALL)
 # Settings every target had: CharacterSet Unicode, ConformanceMode (/permissive-), SDLCheck (/sdl).
 # NDEBUG in Release comes from CMake's default Release flags (/O2 /Ob2 /DNDEBUG).
 set(SCO_COMMON_DEFINES UNICODE _UNICODE _CONSOLE)
-set(SCO_COMMON_OPTIONS /permissive- /sdl)
+set(SCO_COMMON_OPTIONS /permissive- /sdl /utf-8)
 
 # --- dinput8.dll and the ImGui it draws with --------------------------------------------------
 # The .vcxproj compiled ImGui inside the DLL project, so it gets the DLL's settings except warnings.
@@ -94,6 +111,7 @@ target_compile_options(imgui PRIVATE ${SCO_DLL_OPTIONS} /W0)
 target_link_libraries(imgui INTERFACE d3d11 d3dcompiler dwmapi imm32)
 
 add_library(dinput8 SHARED
+  local/host/characters_ui.cpp
   src/dinput8_version.rc
   src/dllmain.cpp
   src/common.cpp
@@ -105,11 +123,13 @@ add_library(dinput8 SHARED
   src/npc.cpp
   src/build.cpp
   src/cvars.cpp
+  local/host/companion_adapter.cpp
   src/missions.cpp
   src/contracts.cpp
   src/quantum.cpp
   src/services.cpp
   src/fleet.cpp
+  src/bridge.cpp
   src/outfits.cpp
   src/menu.cpp
   src/hotkeys.cpp
@@ -118,8 +138,8 @@ add_library(dinput8 SHARED
   src/builtins/teleport_plugin.cpp
   src/builtins/spawn_plugin.cpp
   src/builtins/crew_plugin.cpp
-  src/builtins/npc_plugin.cpp
   src/builtins/loadout_plugin.cpp
+  src/local_plugin_adapter.cpp
   src/builtins/quantum_plugin.cpp
   src/builtins/build_plugin.cpp
   src/builtins/contracts_plugin.cpp
@@ -144,12 +164,21 @@ target_compile_options(dinput8 PRIVATE ${SCO_DLL_OPTIONS} /W3)
 # SubSystem Windows; Release: OptimizeReferences, EnableCOMDATFolding.
 target_link_options(dinput8 PRIVATE /SUBSYSTEM:WINDOWS "$<$<CONFIG:Release>:/OPT:REF;/OPT:ICF>")
 # Also named by #pragma comment(lib) in dllmain.cpp and menu.cpp.
-target_link_libraries(dinput8 PRIVATE imgui d3d11 shlwapi advapi32 windowscodecs ole32)
+target_link_libraries(dinput8 PRIVATE imgui d3d11 shlwapi advapi32 windowscodecs ole32 winhttp bcrypt)
 # The host kit (sco/app.h, with sco/scan.h, signatures, caps, the plugin loader), sco-lua with its
 # Star Citizen adapter (sco_lua_game: sco.datacore and sco.game for scripts), the detour engine, the zone tree (sco/engine/zone.h) and the CryPak adapter (sco/game/pak.h, with sco_vfs).
 target_link_libraries(dinput8 PRIVATE sco_app sco_lua sco_lua_game sco_hook sco_engine sco_pak)
 
+# NPC and inspector are external published-SDK modules; no host targets or fallback.
+
 # --- optional bridges (docs/bridges.md) ------------------------------------------------------------
+add_executable(local-fleet-bridge-test EXCLUDE_FROM_ALL tests/bridge_client.cpp src/bridge.cpp)
+target_include_directories(local-fleet-bridge-test PRIVATE external/sco-core/include)
+target_compile_options(local-fleet-bridge-test PRIVATE /utf-8)
+target_compile_definitions(local-fleet-bridge-test PRIVATE ${SCO_COMMON_DEFINES})
+target_link_libraries(local-fleet-bridge-test PRIVATE winhttp bcrypt)
+add_executable(local-fleet-protocol-test EXCLUDE_FROM_ALL tests/bridge_protocol_test.cpp)
+target_compile_options(local-fleet-protocol-test PRIVATE /utf-8 /UNDEBUG)
 # Built-ins that link the game to another program on the same PC through sco-core's sco.ipc. Off by
 # default and never in a release: the release job packages the default build's dinput8.dll, and CI
 # builds these ON in a job of its own (artifact "bridges-test") only so they keep compiling.
@@ -211,7 +240,7 @@ set_target_properties(spawn_probe PROPERTIES
   ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/test-plugins")
 configure_file(tools/test-plugins/spawn_probe/plugin.ini "${_probe_dir}/plugin.ini" COPYONLY)
 
-# builtins_probe exercises the feature built-ins' commands in game (crew, npc, loadout, quantum,
+# builtins_probe exercises host feature commands and the external NPC commands in game (crew, npc, loadout, quantum,
 # build, contracts); same layout as spawn_probe.
 add_library(builtins_probe SHARED tools/test-plugins/builtins_probe/builtins_probe.c)
 target_include_directories(builtins_probe PRIVATE external/sco-core/include)
@@ -283,3 +312,46 @@ set_target_properties(sc-offline-discord PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${_discord_dir}/$<0:>"
   ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/plugins")
 configure_file(data/plugins/discord/plugin.ini "${_discord_dir}/plugin.ini" COPYONLY)
+
+
+# Local optional features: SDK consumers, private versioned adapter, no game implementation linkage.
+foreach(_local IN ITEMS exploration loadout_presets)
+ add_library(local-${_local} MODULE plugins/${_local}/${_local}.cpp)
+ target_include_directories(local-${_local} PRIVATE external/sco-core/include src/third_party/imgui)
+ target_compile_definitions(local-${_local} PRIVATE ${SCO_COMMON_DEFINES})
+ target_compile_options(local-${_local} PRIVATE ${SCO_COMMON_OPTIONS} /W4)
+ target_link_libraries(local-${_local} PRIVATE imgui)
+ set(_local_dir "${CMAKE_BINARY_DIR}/data/plugins/${_local}")
+ set_target_properties(local-${_local} PROPERTIES OUTPUT_NAME ${_local} PREFIX "" SUFFIX ".dll" RUNTIME_OUTPUT_DIRECTORY "${_local_dir}/$<0:>" LIBRARY_OUTPUT_DIRECTORY "${_local_dir}/$<0:>" ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/plugins")
+ configure_file(data/plugins/${_local}/plugin.ini "${_local_dir}/plugin.ini" COPYONLY)
+endforeach()
+
+
+add_executable(companion-payload-test EXCLUDE_FROM_ALL tools/companion_payload_test.cpp)
+target_compile_options(companion-payload-test PRIVATE /utf-8 /UNDEBUG)
+add_executable(companion-diagnostics-test EXCLUDE_FROM_ALL tools/companion_diagnostics_test.cpp)
+target_compile_features(companion-diagnostics-test PRIVATE cxx_std_20)
+target_compile_options(companion-diagnostics-test PRIVATE /utf-8 /UNDEBUG)
+
+# Exercise the pinned host storage implementation against an isolated test root.
+add_executable(local-storage-test EXCLUDE_FROM_ALL external/sco-core/tests/test_storage.cpp)
+target_link_libraries(local-storage-test PRIVATE sco_storage)
+target_compile_options(local-storage-test PRIVATE /utf-8)
+add_executable(local-death-events-test EXCLUDE_FROM_ALL external/sco-core/tests/test_death_events.cpp)
+target_include_directories(local-death-events-test PRIVATE external/sco-core/src)
+target_link_libraries(local-death-events-test PRIVATE sco_host)
+target_compile_options(local-death-events-test PRIVATE /utf-8)
+add_executable(storage-sql-benchmark EXCLUDE_FROM_ALL tools/storage_sql_benchmark.cpp)
+target_link_libraries(storage-sql-benchmark PRIVATE sco_sqlite)
+target_compile_options(storage-sql-benchmark PRIVATE /utf-8)
+
+add_executable(local-net-core-test EXCLUDE_FROM_ALL external/sco-core/tests/test_net.cpp)
+target_link_libraries(local-net-core-test PRIVATE sco_net)
+add_executable(local-net-service-test EXCLUDE_FROM_ALL external/sco-core/tests/test_net_service.cpp)
+target_link_libraries(local-net-service-test PRIVATE sco_net_service)
+add_executable(multiplayer-wire-test EXCLUDE_FROM_ALL tools/multiplayer_wire_test.cpp)
+target_compile_options(multiplayer-wire-test PRIVATE /utf-8 /UNDEBUG)
+
+add_executable(mp-network-check EXCLUDE_FROM_ALL tools/mp_network_check.cpp)
+target_link_libraries(mp-network-check PRIVATE sco_net_service)
+target_compile_options(mp-network-check PRIVATE /utf-8)

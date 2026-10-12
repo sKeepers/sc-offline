@@ -1,13 +1,16 @@
 #pragma once
 #include "common.h"
+#include "../plugins/exploration/local_api.h"
 
 bool ResolveSpawnApi(const Section& text, const Section& rdata);
 // Sets capability `name` (sco/game/actors.h or sco/game/features.h) from its signature rows;
 // false, after one "[tag] what disabled (row STATE; see the [core] lines)" line, unless all are OK.
 bool ActorsCapability(const char* name, const char* tag, const char* what);
 bool SpawnerReady();
+const char* StartShipAtPlace(const TravelPlace& place, float altitude, const char* shipClass, DWORD now);
 void ReadStartOptions();
 bool StartingOverDaymar();
+void CancelDaymarStart(); // explicit persistent travel start takes priority
 bool PluginsEnabled();   // plugins = on (SC_OFFLINE_PLUGINS); read by ReadStartOptions
 void ProcessShipMenu(DWORD now);
 void ProcessCrew(DWORD now);   // seat actions, crew jobs, the seat list (the crew built-in's tick)
@@ -26,7 +29,11 @@ bool PrefabsReady();
 uint64_t LocalPlayerEntityId();
 uint64_t EntityIdOfComponent(uintptr_t component);
 uint64_t EntityIdOfHandle(const void* handle);
+uint64_t PlayerShipId();   // the ship you are aboard, or 0
+int PlayerSeatLinkState(); // game thread: 1 linked to a seat, 0 unlinked, -1 unavailable
+uint64_t TargetShipId();   // the Crew & seats target ship, or 0
 bool EntityAlive(uint64_t id);   // does the id resolve in the entity system now? (game thread; guarded)
+uintptr_t EntityPointerById(uint64_t id); // guarded, game thread
 bool FindEntityByNameEx(const char* name, uintptr_t& entity, uint64_t& id);   // entity pointer + id, or false
 bool EntityClassExists(const char* name);   // is this a spawnable entity class? (call inside __try)
 bool UnseatEntityById(uint64_t id);          // take an actor out of whatever seat it's in

@@ -12,6 +12,7 @@ struct MpSettings {
     char     joinAddress[64];   // numeric IPv4
     int      joinPort;
     char     avatarClass[64];   // how others see you, when their npcs.txt has it
+    bool     diagnosticOnly;    // receive/send poses, but do not spawn remote visual entities on this PC
     bool     showShips;         // spawn other players' ships
     bool     rememberPass;
     char     passphrase[129];
@@ -30,6 +31,7 @@ bool        Mp_InSession();      // hosting, joining or joined
 bool        Mp_GhostsReady();    // spawn.entities 1.2 and teleport.spatial: ghosts can be shown
 const char* Mp_StateText();      // "Not in a session", "Hosting on UDP port 64091", ...
 const char* Mp_LastReason();     // why the last session ended, or ""
+void Mp_Diagnostics(char* out, std::size_t size);
 const char* Mp_AllowText();      // the extra allowed networks (multiplayer_allow), or ""
 
 struct MpPeerView {
@@ -38,6 +40,12 @@ struct MpPeerView {
     bool        self;
     const char* avatar;          // the ghost's state, for the list
     const char* ship;            // "" with no ship
+    const char* build;
+    bool        versionKnown;
+    uint8_t     poseVersion;
+    bool        gotPose;
+    uint64_t    poseAgeMs;
+    uint64_t    posesReceived;
     uint64_t    sessionId;       // the session-scoped id of this player's avatar
 };
 int  Mp_PeerCount();

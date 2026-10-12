@@ -400,16 +400,16 @@ sco_result CrewLoad(const sco_api* api, sco_plugin* self) {
         "Puts you in the target ship's first usable seat whose name has these words, removing a crew NPC in it", Sit, seat, 1);
     if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, "game.vehicles.seat", "crew.stand_all", "Everyone stand up",
         "You and the crew NPCs this plugin added on the target ship get out of the seats", StandAll);
-    if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, "game.vehicles.seat", "crew.fill", "Fill empty seats",
+    if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, "game.vehicles.seat", "crew.fill", "Занять свободные кресла",
         "Puts an NPC of this archetype in every empty, usable seat of the target ship and says how many seats it skipped", Fill, npc, 1);
     if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, "game.actors.despawn", "crew.clear", "Remove NPC crew",
         "Removes the NPCs this plugin added to the target ship", Clear);
-    if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, "game.vehicles.flight_ready", "crew.power_on", "Power on",
+    if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, "game.vehicles.flight_ready", "crew.power_on", "Включить питание",
         "Sends the game's Flight Ready event to the target ship", PowerOn);
     if (r == SCO_OK) r = api->subscribe(self, "tick", OnTick, nullptr);
     if (r != SCO_OK) return r;   // the host releases what was registered
     // Its page of the menu (and keys), through sco.ui; the menu shell draws it (tabs.h).
-    RegisterBuiltinTab(api, self, "crew.crew", "Crew", kTabCrew, DrawCrewTab);
+    RegisterBuiltinTab(api, self, "crew.crew", "Экипаж", kTabCrew, DrawCrewTab);
     g_ticking = true;
     return SCO_OK;
 }

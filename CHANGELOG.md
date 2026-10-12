@@ -1,6 +1,77 @@
 # Changelog
+## Persistent travel start (2026-10-11)
+- Choose a listed place or an exact on-foot start point independently of autosaves. Store the choice in quantum.db; apply it on the next launch with priority over Daymar/F7/resume. Request native delinking before relocation and confirm actual arrival. Startup retries are bounded; unavailable destinations remain saved for a later retry.
+- Allow player teleportation into a loaded system and resolve saved zone hosts by stable names. Preserve zone identity validation, seat checks and arrival checks. Whole ships and their cargo are not transported or persisted by this feature.
+## Autonomous companion testing (2026-10-11)
+- Show the latest numbered AI order's actual Success/Failure or pending result in the NPC menu. Correlate callbacks by module name; an older order's cancellation does not overwrite the latest result. Pending is not interpreted as failure or successful physical following.
+- Confirmed probe activation with native logging suppressed. Connected AI Success/Failure outputs to observed diagnostic messages; BuddyLeader emitted Success, MoveTo emitted Failure in the current zone. The same NPC was reported stuck on SitOnFLoor-001 by the movement system; causality and physical following remain unverified.
+- Add a one-shot local menu-open request and a Security_Lawful selection shortcut for unattended diagnostics. Selection does not spawn an actor.
+- Runtime test: one peaceful NPC created, relationship read and BuddyLeader/Follow/Idle/MoveTo requests returned without interface exceptions; actual assignment acceptance and Guard remain unconfirmed.
+- Read native output-port names and configuration RVAs. Observe the test probe's Debug:Log activation while forwarding every event to its original handler unchanged; distinguish an active input from suppressed native logging.
+
+## Peaceful NPC leader experiment (2026-10-11)
+- Runtime relationship read succeeded: Security_Lawful faction114, player faction255 (unknown), no personal hostility/aggression; user observed peaceful behavior.
+- Allow an explicit BuddyLeader request for an observed peaceful NPC when player faction is unknown, without writing either faction. Recheck personal hostility/aggression before every order; reject changed factions or missing leader request. This does not establish alliance or assignment acceptance.
+- Require peaceful observation before leader/follow orders and separately observed peaceful following before Guard. Remove the probe's simultaneous End edge to test whether early termination hides its debug marker; the reason for missing execution remains unproven.
+
+## Companion relationship diagnostics (2026-10-11)
+- Read native per-actor personal hostility/aggression and faction IDs, without changing factions or assigning AI tasks. Add a menu button and one automatic sample after a newly spawned NPC streams in.
+- Verify unique native getter signatures, the embedded personal-hostility layout against a native caller, and the faction-reaction vtable entry. Treat numeric reaction codes as uninterpreted until their semantics are confirmed.
+- Log early action refusals, including unknown player faction. Runtime validation and actual companion behavior remain pending.
+
+## Companion Hostility interface correction (2026-10-11)
+- Validate the current native faction methods at confirmed Hostility slots0x6E8/0x6F8, replacing an insufficient short vtable scan.
+- Check readable component/vtable bounds and treat unsupported component aliases as lookup failures. Record the stage and address of any remaining exception.
+- First NPC assignment test failed before faction/readback confirmation; following and guard remain unverified.
+
+## Experimental native companion controls (2026-10-11)
+- Runtime inspection confirmed the current AI assignment inputs. Add queued faction/BuddyLeader, noncombat Follow, Idle, MoveTo and DefendTarget requests for the last mod-created NPC.
+- Resolve native Hostility Get/SetFactionId signatures, verify both methods in the component interface and read the faction back before allowing orders. Keep guard behind an observation checkbox.
+- Commands remain experimental: module registration and handler return do not prove assignment acceptance or friendly behavior. Limit requests to16 per launch and disable on interface faults.
+
+## Local companion module bridge (2026-10-11)
+- Resolve current native Flowgraph command handlers and validate module-manager load/get signatures before calling them on the game thread.
+- Explicitly load and execute the harmless companion probe once; retain registration evidence and inspect AI node type registration when its accessor matches.
+- Add a manual probe retry to the NPC tab. No NPC assignments yet; runtime acceptance pending.
+
+## Local companion diagnostics (2026-10-11)
+- Read fg_SystemEnable and fg_debugmodules on the game thread and retain the results in mod.log at 10, 30, 60 and 120 seconds after the first game tick.
+- Distinguish unavailable values from zero; no console commands, settings changes or NPC assignments. Companion behavior remains unimplemented and runtime validation is pending.
+
+## Local travel verification (2026-10-11)
+- Reject place/bookmark requests while the player is linked to a seat; explain that travel moves the character, not the ship.
+- Confirm place arrival from actual named-frame player coordinates; show a timeout instead of an unverified success message.
+- Release build and 20 state checks pass; runtime acceptance pending. Unknown planet radii remain unchanged.
+
+## Local NPC crash fix (2026-10-10)
+- Exclude Transport from the NPC picker and reject it before all engine spawn batches: the current LIVE client fatally asserts on missing actor components.
+- Session reports retain NPC creation events, rejected spawn requests and the engine's exact fatal error message.
+- Known-crash protection and report selection verified outside the game; in-game retest pending.
+
+## Local Exploration 1 (0.7.3 RU)
+- Flight profile in the launcher; ship favorites and destination selection in a new built-in tab.
+- Periodic session saves, named-frame position restoration, recreation of the current ship class and the last mod-selected loadout.
+- Local visit, route, race, survey and precise-stop exercises; exploration journal, separate points and route record.
+- Capability report in game and per-session reports in the launcher; no automatic upload.
+- Base offline startup confirmed by the user. Extension compiled and tested outside the game; in-game acceptance pending.
+
+## Local Russian edition (0.7.3 RU)
+- Russian launcher and built-in menu, UTF-8 output and Cyrillic-aware search.
+- Wider controls; upstream automatic updates disabled in the Russian package.
+- Sources and upstream GPL-3.0 attribution included. Base startup later confirmed by the user.
+
 
 ## Unreleased
+
+The entries below record changes in order, newest first. Earlier migration counts
+and routes describe intermediate states; Step 1C supersedes the built-in NPC path.
+
+- **Step 1C: ship NPC as an external published-SDK plugin.** `data/plugins/npc/{plugin.ini,npc.dll}` ships enabled without a `disabled` marker and requires `plugins = on`. `npc.spawn`, `npc.observe`, `npc.remove` and `npc.clear` are command-first, with bounded session tickets, fresh borrowed services, explicit pending/unknown observations and owned-only removal; accepted removal is not confirmed disappearance. Remove NPC built-in registration and host linkage, with no disabled-folder or `plugins = off` fallback. Nine built-ins remain, alongside four external features (npc, inspector, creative, discord): 13 baseline units plus two separately counted optional bridges. The old NPC tab is removed pending renderer-neutral widgets ([sco-core #139](https://github.com/scubamount/sco-core/issues/139)); Crew keeps its shared picker, no new ImGui coupling is added, and legacy `src/npc.cpp` is untouched. Isolated build/check/install uses verified published `sdk-v2.0.0` combined `sco-sdk-2.0.0.zip` and release `SHA256SUMS`. Launcher behavior and creative/Discord defaults are unchanged. **In-game acceptance: NOT RUN.** Native faults are restart-required, not safe reload/recovery; checker and synthetic evidence do not certify game behavior.
+- **Step 1B: ship inspector as an external SDK plugin.** At this earlier step, only inspector's production built-in registration was removed; ten built-ins, including NPC, remained (NPC is externalized by step 1C above). `data/plugins/inspector/plugin.ini` and `inspector.dll` ship enabled without a `disabled` marker, require `plugins = on`, and expose read-only `inspector.read` with explicit unknowns and no new ImGui coupling. Native plugin compilation is isolated against the published `sdk-v2.0.0` combined `sco-sdk-2.0.0.zip`, verified against release `SHA256SUMS`; the restricted Lua example remains non-default (its own `inspector_lua` ID). A worked published-SDK build/check/install tutorial and [owner decisions](docs/decisions.md) record the 13-feature target, separately counted optional bridges and pending policy work. Creative/Discord defaults and launcher behavior are unchanged. Windows and owner in-game acceptance remain **NOT RUN** until separately recorded; checker/synthetic success is not gameplay proof.
+- **Pin the published sco-core SDK 2.0.0 release.** `external/sco-core` moves from `2197dfbf5a630e5a16a201526e628f1d28df908a` to tag `sdk-v2.0.0`, commit `cd9a686bda4184f1befbdf0b74b503a1565540dd`. The plugin ABI remains **1.1** and the Star Citizen game pack is **0.3.0**; the SDK major version describes packaging/profile and release-process changes, not an ABI bump. The full host continues to build from tagged source. Architecture and status now identify the release pin; older entries below describe their pins at the time of each change. Offline startup, EAC detection/refusal, service-before-plugin ordering, menu and clean exit remain owner-run acceptance: **not run in game**.
+- **Optional plugin ImGui is exact-version coupled to the host, not the frozen C ABI:** independently pin all 15 vendored inputs and compare the three public SDK files; CI rejects source/configuration drift even when the WIP version label and both header copies agree. Drawing plugins must rebuild when the host pin or ABI-affecting configuration changes. No runtime, SDK pin or gameplay behavior change.
+- **SDK-only inspector and owned NPC workflows.** Shared feature sources now serve separate built-in and native adapters without private menu, registration or version dependencies. `inspector.read` (and a restricted Lua counterpart) reports player/health/transform reads with explicit unknowns; `npc.observe`/`npc.remove` add bounded lifecycle observation and owned-only removal. The NPC tab no longer clears crew NPCs. Synthetic SDK-only and adapter tests are included; Windows builds and in-game acceptance remain required. See [SDK workflows](docs/sdk-workflows.md).
+- **Built-in commands answer `SCO_FAILED` when they ran and failed** (sco-core #12; `SCO_FAILED = 7`, "the command or service ran, but failed; see reply"). `teleport.save` and `teleport.go` answer `SCO_FAILED` with the reason in the reply when the spot couldn't be saved or reached (no saved spot yet, the spawn file it couldn't write) instead of `SCO_UNAVAILABLE`, and `multiplayer.leave` does the same with no session to leave. `SCO_UNAVAILABLE` stays what it says: the capability isn't on this build, which the host answers before the command runs — so a plugin or a menu can tell "teleport is missing here" from "teleport ran and this call failed". The Player tab's creative checkboxes say "Not available on this game build." for `SCO_UNAVAILABLE` and show the command's own reply for `SCO_FAILED`. The decision is one function (`src/builtins/builtin_result.h`), tested on Linux by the check job (`tools/builtins_result_test.cpp`). Plugins see the change only through the result code they already handle; 1.0 plugins that treat both as "didn't happen" are unaffected. The published `sdk-v2.0.0` pin (`cd9a686`) retains `SCO_FAILED` 7, its ABI pin, the docs table and the sco-lua mapping.
 - **sco-core moves to `c133484`** (from `31cf53a`; sco-core's release-hardening PRs 01–05). sco-lua is game-neutral now: Lua scripts' `sco.datacore`, the read-only `sco.game.*` tables and the `game.*` event payloads come from sco-core's Star Citizen adapter, which `StartHostKit` registers before any script loads (`sco_lua_add_extension(&sco_lua_game_extension)`; `dinput8` links `sco_lua_game`). Same tables, same read-only rules, same payloads as before; a failed registration is logged. Also in the move: the SDK manifest `sdk/components.json` (the `sdk-headers` job reads it, core + game-sc), the profile zips, IP policy and notices. Needs the usual in-game check: a Lua script reading `sco.game.actors` and receiving `game.player.died`.
 - **Docs rewritten for the SDK conversion.** The README and `docs/` now describe the code as it is: sc-offline as host and reference consumer of sco-core (pinned at `31cf53a`), the `game.*` service each feature runs on (new `docs/architecture.md`), built-ins versus optional plugins and the creative plugin, the five CI jobs and what the `sdk-headers` allow-list means (`docs/build.md`), and what has not been run in game yet (new `docs/status.md`). Fixed: the plugin report counts (ten built-ins; `creative` is found but not loaded while its `disabled` marker is there), the capabilities each built-in's commands are gated on, the Multiplayer tab missing from the tab order, co-presence listed as planned and not shipped, ASOP terminals listed as not working offline, and the old one-feature-at-a-time roadmap, now marked historical. No code changes.
 - **Noclip, god mode and infinite ammo are an optional plugin now** (`data/plugins/creative`, CMake target `sc-offline-creative`, sources in `plugins/creative/`; pins sco-core's `game.creative` 1.0). The plugin is a plain SDK consumer: it includes only the SDK zip's headers, and `tools/sdk-headers.py` now checks `plugins/` as well as `src/builtins/`, with no allow-list entry for it. It registers `creative.god <on>`, `creative.noclip <on>`, `creative.noclip_speed <speed>`, `creative.ammo <on>`, `creative.ship_ammo <on>` and `creative.status`, and the release ships it **off** (a `disabled` marker next to `plugin.ini` and `creative.dll`; turn it on in the launcher's Plugins page, with `plugins = on`). **Removed from `dinput8.dll`**: the `ammo` built-in (`ammo.infinite` and `ammo.ship_infinite` are `creative.ammo` and `creative.ship_ammo` now, because a plugin's commands start with its id), `src/ammo.cpp`, the spawner's noclip and god-mode code and their `Menu_Set*` toggles, and `PlayerShipId`, `TargetShipId` and `ShipPartComponents`. The Player and Vehicles tabs' checkboxes run the plugin's commands through `invoke` (with the plugin off they put the checkbox back and say so in the status strip). Behaviour changes: god mode no longer starts on, and infinite ship ammo covers the ship you're aboard only, not the Crew tab's target ship. The build job uploads the plugin's DLL (artifact `creative-plugin`) and the release job packages it. Not run in game yet.
@@ -46,12 +117,21 @@
 - Docs and `sc-offline.ini`: `start_ship` only applies with `start = Daymar`, the wallet lives in `data\wallet.txt`, and a new **Not available offline** list in `docs/features.md` covers ASOP, the vehicle manager and character creation ([#26](https://github.com/scubamount/sc-offline/issues/26)).
 - README: 0.6.1 has been played in game on Windows; the "nobody has played it" note is gone. Linux through Wine is still untested.
 
+## 0.7.7 (2026-10-11) — EXPERIMENTAL HOTFIX
+
+For Star Citizen 4.10.2.
+
+- Fixes competing death-hook ownership: the game pack owns the detour, captures actor ID before original code under SEH and forwards all three original arguments. `game.actors.died` covers every actor; `game.player.died` remains local-player only. C/C++/C#/Lua adapters carry the 24-byte event payload.
+- Contracts subscribe under their built-in owner with cleanup on unload/failure, ignore unknown ID 0 and preserve the 32-entry recent-death ring. The entity-only fallback logs a degraded-bookkeeping warning once. Core is pinned to `2197dfbf5a630e5a16a201526e628f1d28df908a`.
+- Startup megamap crash #109 remains under investigation. Built/tested in Windows CI; not run in game. Maintainer elects to ship and triage player reports. This hook repair does not prove a startup-crash cure.
+- Crash diagnostics report the fault module/offset and raw-stack executable-address candidates, not an unwound call chain; these candidates do not establish causation.
+
 ## 0.7.6 (2026-10-11) — EXPERIMENTAL
 
 For Star Citizen 4.10.2.
 
-- **Fixed: the game could close by itself while loading when sc-offline was started as administrator.** Started with *Run as administrator*, the launcher started the game as administrator too. As administrator, Windows makes the game ignore the switches it uses to turn off overlay Vulkan layers, so layers such as OBS's load into it, and a player's game then crashed while loading the universe. `play` now starts the game with normal rights even when the launcher has administrator rights (it says so). With User Account Control turned off that isn't possible; the game then starts as before, with a warning to close OBS. If `StarCitizen.exe` itself is set to *Run this program as an administrator*, the launcher says to untick that box.
-- **`mod.log` names what crashed.** The game's crash line in `Game.log` gives only an address. sc-offline now adds `[crash]` lines to `mod.log` with the module and offset that faulted (the game, a driver, an overlay) and the modules on the stack, then lets the game's own crash handler run as before. `mod.log` also warns when the game runs as administrator.
+- **Launch-token fallback and diagnostics.** `play` attempts to launch with the desktop's normal-rights token even from an elevated launcher. When that token is unavailable (for example with UAC disabled), it falls back to the existing launch path and warns. An executable configured to require administrator rights needs that setting removed. This behavior does not establish an OBS/elevation cause or a megamap crash cure.
+- **`mod.log` names what crashed.** The game's crash line in `Game.log` gives only an address. sc-offline now adds `[crash]` lines to `mod.log` with the module and offset that faulted (the game, a driver, an overlay) and raw-stack executable-address candidates (not an unwound call chain), then lets the game's own crash handler run as before. `mod.log` also warns when the game runs as administrator.
 
 ## 0.7.5 (2026-10-10) — EXPERIMENTAL
 

@@ -12,7 +12,7 @@ void InitLog() { InitializeCriticalSection(&g_logLock); }
 void OpenConsole() {
     EnterCriticalSection(&g_logLock);
     AllocConsole();
-    SetConsoleTitleW(L"sc-offline");
+    SetConsoleTitleW(L"sc-offline — диагностика локальной сборки");
     g_console = CreateFileW(L"CONOUT$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
                             nullptr, OPEN_EXISTING, 0, nullptr);
     LeaveCriticalSection(&g_logLock);
@@ -36,7 +36,10 @@ void Log(const char* fmt, ...) {
     if (g_console != INVALID_HANDLE_VALUE) {
         buf[n] = '\r'; buf[n + 1] = '\n';
         DWORD written;
-        WriteConsoleA(g_console, buf, static_cast<DWORD>(n + 2), &written, nullptr);
+        wchar_t wide[1024];
+        const int chars = MultiByteToWideChar(CP_UTF8, 0, buf, n + 2, wide, _countof(wide));
+        if (chars > 0) WriteConsoleW(g_console, wide, static_cast<DWORD>(chars), &written, nullptr);
+        else WriteConsoleA(g_console, buf, static_cast<DWORD>(n + 2), &written, nullptr);
         buf[n] = '\0';
     }
     if (g_logFile) {
@@ -71,11 +74,11 @@ bool WriteCode(uint8_t* at, const uint8_t* bytes, size_t n, DWORD& err) {
 
 void LogPatch(const char* name, const PatchStatus& st) {
     switch (st.result) {
-    case PatchResult::Applied:         Log("[+] %s: patched %d site(s), first at 0x%p", name, st.sites, st.at); break;
-    case PatchResult::NotFound:        Log("[!] %s: pattern not found (game updated?)", name); break;
-    case PatchResult::WrongMatchCount: Log("[!] %s: pattern matched %d time(s), expected %d; refused to patch", name, st.sites, st.expected); break;
-    case PatchResult::ProtectFailed:   Log("[!] %s: VirtualProtect failed (%lu)", name, st.err); break;
-    case PatchResult::NotRun:          Log("[-] %s: not run", name); break;
+    case PatchResult::Applied:         Log("[+] %s: изменено участков: %d, первый адрес: 0x%p", name, st.sites, st.at); break;
+    case PatchResult::NotFound:        Log("[!] %s: сигнатура не найдена (игра обновилась?)", name); break;
+    case PatchResult::WrongMatchCount: Log("[!] %s: совпадений: %d, ожидалось: %d; изменение отменено", name, st.sites, st.expected); break;
+    case PatchResult::ProtectFailed:   Log("[!] %s: ошибка VirtualProtect (%lu)", name, st.err); break;
+    case PatchResult::NotRun:          Log("[-] %s: не выполнялось", name); break;
     }
 }
 

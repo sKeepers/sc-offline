@@ -6,12 +6,15 @@
 // items.txt and outfits.txt once you're in the universe and equip on the game thread. The
 // mechanics stay in loadout.cpp and outfits.cpp.
 #include "builtins.h"
+void RegisterLocalCharactersTab(const sco_api* api, sco_plugin* self);
 #include "tabs.h"
 #include "../loadout.h"
 #include "../menu.h"
 #include "../outfits.h"
 #include "../teleport.h"
 #include <cstdio>
+
+sco_result RegisterLocalPluginAdapter(const sco_api*,sco_plugin*);
 
 namespace {
 
@@ -97,17 +100,21 @@ void OnTick(const char*, const void*, void*) {
 const sco_plugin_info* LoadoutQuery() { return &kInfo; }
 
 sco_result LoadoutLoad(const sco_api* api, sco_plugin* self) {
+    // Local shell only: ownership and npc.* implementation live in external DLL.
+    RegisterLocalCharactersTab(api, self);
     const sco_arg_def items[1] = { BuiltinArg("items", SCO_ARG_STRING, "Item names from items.txt, separated by spaces or commas") };
     const sco_arg_def outfit[1] = { BuiltinArg("outfit", SCO_ARG_STRING, "Outfit name, as in outfits.txt") };
-    sco_result r = RegisterBuiltinCommand(api, self, kCap, "loadout.equip", "Equip gear",
+    sco_result r = RegisterBuiltinCommand(api, self, kCap, "loadout.equip", "РќР°РґРµС‚СЊ СЃРЅР°СЂСЏР¶РµРЅРёРµ",
         "Equips these items, at most one per slot, as the gear menu's Equip gear does", Equip, items, 1);
-    if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, kCap, "loadout.wear", "Wear SQ42 outfit",
+    if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, kCap, "loadout.wear", "РќР°РґРµС‚СЊ РєРѕРјРїР»РµРєС‚ SQ42",
         "Wears a Squadron 42 outfit, as the Squadron 42 tab does", Wear, outfit, 1);
     if (r == SCO_OK) r = api->subscribe(self, "tick", OnTick, nullptr);
     if (r != SCO_OK) return r;   // the host releases what was registered
     // Its page of the menu (and keys), through sco.ui; the menu shell draws it (tabs.h).
     RegisterPlayerTab(api, self);
-    RegisterBuiltinTab(api, self, "loadout.sq42", "Squadron 42", kTabSq42, DrawSq42Tab);
+    RegisterBuiltinTab(api, self, "loadout.sq42", "Р­СЃРєР°РґСЂРёР»СЊСЏ 42", kTabSq42, DrawSq42Tab);
+    r=RegisterLocalPluginAdapter(api,self);
+    if(r!=SCO_OK)return r;
     g_ticking = true;
     return SCO_OK;
 }

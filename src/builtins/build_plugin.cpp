@@ -97,7 +97,7 @@ sco_result BuildLoad(const sco_api* api, sco_plugin* self) {
         "Turns build mode on or off (F6)", Toggle);
     if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, kCap, "build.undo", "Undo",
         "Removes the last object you placed (Backspace in build mode)", Undo);
-    if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, kCap, "build.clear", "Clear base",
+    if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, kCap, "build.clear", "Очистить постройку",
         "Removes everything you placed", Clear);
     if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, kCap, "build.place", "Place object",
         "Places one buildable without entering build mode; it joins the base, so undo and clear remove it", Place, place, 2);
@@ -123,7 +123,7 @@ sco_result BuildLoad(const sco_api* api, sco_plugin* self) {
     else
         Log("[build] game.world isn't available: the ground ray and the camera come from sco-core's build rows");
     // Its page of the menu (and keys), through sco.ui; the menu shell draws it (tabs.h).
-    RegisterBuiltinTab(api, self, "build.build", "Build", kTabBuild, DrawBuildTab);
+    RegisterBuiltinTab(api, self, "build.build", "Строительство", kTabBuild, DrawBuildTab);
     BindBuiltinHotkey(api, self, "f6", "build.toggle");
     g_ticking = true;
     return SCO_OK;

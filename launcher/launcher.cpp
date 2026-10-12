@@ -38,6 +38,7 @@
 #include <winsafer.h>
 #include <commctrl.h>
 #include <cctype>
+#include <clocale>
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
@@ -51,6 +52,8 @@
 #include <string>
 #include <vector>
 #include "../src/version.h"
+#include "../local/localization.h"
+#include "../src/list_label.h"
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include "../src/third_party/imgui/imgui.h"
 #include "../src/third_party/imgui/imgui_impl_win32.h"
@@ -133,7 +136,7 @@ static void PauseIfOwnConsole() {
     if (GuiChild()) return;
     DWORD ids[2];
     if (GetConsoleProcessList(ids, 2) > 1) return;
-    std::printf("\nPress Enter to close this window.");
+    std::printf(LocalI18n::T("launcher.press_enter_to_close_this_window.96d123c010"));
     std::getchar();
 }
 
@@ -154,6 +157,7 @@ static int FailCode(int code, const char* fmt, ...) {
 
 // sc-offline.ini: `key = value` lines; a line starting with '#' is a comment. Unknown keys are reported, not ignored.
 struct Config {
+    wstring language = L"auto", gameLanguage = L"auto";
     wstring game, channel = L"LIVE", bootMap = L"PU_All", startShip = L"DRAK_Cutlass_Black", start;
     // What the helper changes on the PC while you play, and undoes when the game closes.
     bool firewall = true, eacHosts = true, eacRename = true;
@@ -170,6 +174,7 @@ struct Config {
     bool discordOff = false;
     // Load plugins from data\plugins (sco-core's plugin loader). On by default.
     bool plugins = true;
+    bool resume = false, autosave = true;
     // The Multiplayer tab (co-presence over sco-core's sco.net): on by default, but nothing networks
     // until the player presses Host or Join. multiplayerAllow: extra IPv4 ranges (a VPN), checked.
     bool multiplayer = true;
@@ -220,6 +225,7 @@ static bool ParseAllowList(const wstring& v, std::vector<Ipv4Range>& out, wstrin
     return true;
 }
 
+static std::string Narrow(const wstring& w);
 static bool ReadConfig(const wstring& path, Config& c) {
     HANDLE f = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
     if (f == INVALID_HANDLE_VALUE) return false;
@@ -236,43 +242,47 @@ static bool ReadConfig(const wstring& path, Config& c) {
         wstring line = text.substr(pos, nl - pos); pos = nl + 1; ++lineNo;
         if (Trim(line).empty() || Trim(line)[0] == L'#') continue;   // whole-line comments only: paths may hold '#'
         const size_t eq = line.find(L'=');
-        if (eq == wstring::npos) { Out("[!] sc-offline.ini line %d: expected key = value\n", lineNo); continue; }
+        if (eq == wstring::npos) { Out(LocalI18n::T("launcher.sc_offline_ini_line_d_expected_key_value.f0690d7721"), lineNo); continue; }
         const wstring k = Trim(line.substr(0, eq)), v = Trim(line.substr(eq + 1));
         if      (!_wcsicmp(k.c_str(), L"game"))       c.game = v;
+        else if (!_wcsicmp(k.c_str(), L"language")) { if(LocalI18n::SafeCode(Narrow(v))) c.language=v; }
+        else if (!_wcsicmp(k.c_str(), L"game_language")) { if(LocalI18n::SafeCode(Narrow(v))) c.gameLanguage=v; }
         else if (!_wcsicmp(k.c_str(), L"channel"))    { if (!v.empty()) c.channel = v; }
+        else if (!_wcsicmp(k.c_str(), L"resume")) { if(!ParseOnOff(v,c.resume)) Out(LocalI18n::T("launcher.resume_on_or_off.a1c8feaec1")); }
+        else if (!_wcsicmp(k.c_str(), L"autosave")) { if(!ParseOnOff(v,c.autosave)) Out(LocalI18n::T("launcher.autosave_on_or_off.257d7cd458")); }
         else if (!_wcsicmp(k.c_str(), L"boot_map"))   c.bootMap = v;
         else if (!_wcsicmp(k.c_str(), L"start_ship")) c.startShip = v;
         else if (!_wcsicmp(k.c_str(), L"start"))      c.start = v;
         else if (!_wcsicmp(k.c_str(), L"block_network") || !_wcsicmp(k.c_str(), L"eac_hosts") || !_wcsicmp(k.c_str(), L"eac_rename")) {
             bool& b = !_wcsicmp(k.c_str(), L"block_network") ? c.firewall : !_wcsicmp(k.c_str(), L"eac_hosts") ? c.eacHosts : c.eacRename;
-            if (!ParseOnOff(v, b)) Out("[!] sc-offline.ini line %d: %ls must be on or off\n", lineNo, k.c_str());
+            if (!ParseOnOff(v, b)) Out(LocalI18n::T("launcher.sc_offline_ini_line_d_ls_must_be_on_or_off.b280560e1d"), lineNo, k.c_str());
         }
         else if (!_wcsicmp(k.c_str(), L"crash_reports")) {
-            if (!ParseOnOff(v, c.crashReports)) Out("[!] sc-offline.ini line %d: crash_reports must be on or off\n", lineNo);
+            if (!ParseOnOff(v, c.crashReports)) Out(LocalI18n::T("launcher.sc_offline_ini_line_d_crash_reports_must_be_o.1f40ab251a"), lineNo);
         }
         else if (!_wcsicmp(k.c_str(), L"discord_presence")) {
             bool on = true;
             if (ParseOnOff(v, on)) c.discordOff = !on;
         }
         else if (!_wcsicmp(k.c_str(), L"plugins")) {
-            if (!ParseOnOff(v, c.plugins)) Out("[!] sc-offline.ini line %d: plugins must be on or off\n", lineNo);
+            if (!ParseOnOff(v, c.plugins)) Out(LocalI18n::T("launcher.sc_offline_ini_line_d_plugins_must_be_on_or_o.33e289f46e"), lineNo);
         }
         else if (!_wcsicmp(k.c_str(), L"multiplayer")) {
-            if (!ParseOnOff(v, c.multiplayer)) Out("[!] sc-offline.ini line %d: multiplayer must be on or off\n", lineNo);
+            if (!ParseOnOff(v, c.multiplayer)) Out(LocalI18n::T("launcher.sc_offline_ini_line_d_multiplayer_must_be_on_.d1ac710ae2"), lineNo);
         }
         else if (!_wcsicmp(k.c_str(), L"multiplayer_allow")) {
             std::vector<Ipv4Range> ranges;
             if (!ParseAllowList(v, ranges, c.multiplayerAllow)) {
                 c.multiplayerAllow.clear();
-                Out("[!] sc-offline.ini line %d: multiplayer_allow must be up to 8 IPv4 ranges like 100.64.0.0/10 (/8 or narrower); ignored\n", lineNo);
+                Out(LocalI18n::T("launcher.sc_offline_ini_line_d_multiplayer_allow_must_.6538070d0f"), lineNo);
             }
         }
         else if (!_wcsicmp(k.c_str(), L"asop")) {
-            if (!ParseOnOff(v, c.asop)) Out("[!] sc-offline.ini line %d: asop must be on or off\n", lineNo);
+            if (!ParseOnOff(v, c.asop)) Out(LocalI18n::T("launcher.sc_offline_ini_line_d_asop_must_be_on_or_off.2eabe3dca4"), lineNo);
         }
         else if (!_wcsicmp(k.c_str(), L"asop_fleet_list")) {
             if (!_wcsicmp(v.c_str(), L"game") || !_wcsicmp(v.c_str(), L"ships")) c.asopFleetList = v;
-            else Out("[!] sc-offline.ini line %d: asop_fleet_list must be game or ships\n", lineNo);
+            else Out(LocalI18n::T("launcher.sc_offline_ini_line_d_asop_fleet_list_must_be.6d1ca96701"), lineNo);
         }
         else if (!_wcsicmp(k.c_str(), L"mining")) {
             if (!ParseOnOff(v, c.mining)) Out("[!] sc-offline.ini line %d: mining must be on or off\n", lineNo);
@@ -281,18 +291,18 @@ static bool ReadConfig(const wstring& path, Config& c) {
             if (!ParseOnOff(v, c.miningDebug)) Out("[!] sc-offline.ini line %d: mining_debug must be on or off\n", lineNo);
         }
         else if (!_wcsicmp(k.c_str(), L"check_updates")) {
-            if (!ParseOnOff(v, c.checkUpdates)) Out("[!] sc-offline.ini line %d: check_updates must be on or off\n", lineNo);
+            if (!ParseOnOff(v, c.checkUpdates)) Out(LocalI18n::T("launcher.sc_offline_ini_line_d_check_updates_must_be_o.9082cd4652"), lineNo);
         }
         else if (!_wcsicmp(k.c_str(), L"update_channel")) {
             if (!_wcsicmp(v.c_str(), L"stable")) c.prereleases = false;
             else if (!_wcsicmp(v.c_str(), L"prerelease")) c.prereleases = true;
-            else Out("[!] sc-offline.ini line %d: update_channel must be stable or prerelease\n", lineNo);
+            else Out(LocalI18n::T("launcher.sc_offline_ini_line_d_update_channel_must_be_.8c21c5545d"), lineNo);
         }
         else if (!_wcsicmp(k.c_str(), L"clean_logs")) {
             if (!_wcsicmp(v.c_str(), L"ask")) c.cleanLogs = true;
-            else if (!ParseOnOff(v, c.cleanLogs)) Out("[!] sc-offline.ini line %d: clean_logs must be ask or off\n", lineNo);
+            else if (!ParseOnOff(v, c.cleanLogs)) Out(LocalI18n::T("launcher.sc_offline_ini_line_d_clean_logs_must_be_ask_.9140f72353"), lineNo);
         }
-        else Out("[!] sc-offline.ini line %d: unknown key '%ls'\n", lineNo, k.c_str());
+        else Out(LocalI18n::T("launcher.sc_offline_ini_line_d_unknown_key_ls.af84308f33"), lineNo, k.c_str());
     }
     return true;
 }
@@ -493,7 +503,7 @@ static size_t SkipJsonValue(const std::string& j, size_t i) {
 // The release object at body[top]: its tag and the sc-offline-<tag>.zip asset with a SHA-256 digest.
 static bool ReleaseAsset(const std::string& body, size_t top, UpdateInfo& u, std::string& why) {
     std::string tag, raw; size_t at = 0;
-    if (!JsonKey(body, top, "tag_name", tag)) { why = "unexpected reply from GitHub"; return false; }
+    if (!JsonKey(body, top, "tag_name", tag)) { why = LocalI18n::T("launcher.unexpected_reply_from_github.cc47cdb77c"); return false; }
     const std::string want = "sc-offline-" + tag + ".zip";
     if (!JsonKey(body, top, "assets", raw, &at) || at >= body.size() || body[at] != '[') { why = tag + " has no assets"; return false; }
     for (size_t i = at + 1; i < body.size();) {
@@ -524,11 +534,11 @@ static UpdateInfo CheckLatest(DWORD timeoutMs, bool prerelease, std::string* why
     UpdateInfo u;
     std::string body, w;
     const wstring url = prerelease ? wstring(kReleasesList) : wstring(kReleasesApi);
-    if (!HttpGet(url, body, timeoutMs, 4u << 20)) { if (why) *why = "couldn't reach GitHub"; return u; }
+    if (!HttpGet(url, body, timeoutMs, 4u << 20)) { if (why) *why = LocalI18n::T("launcher.couldn_t_reach_github.af9c986a73"); return u; }
     // One release object (stable) or an array of them (prerelease); take the newest acceptable one.
     std::vector<size_t> tops;
     size_t first = body.find_first_not_of(" \t\r\n");
-    if (first == std::string::npos) { if (why) *why = "unexpected reply from GitHub"; return u; }
+    if (first == std::string::npos) { if (why) *why = LocalI18n::T("launcher.unexpected_reply_from_github.cc47cdb77c"); return u; }
     if (body[first] == '{') tops.push_back(first);
     else if (body[first] == '[')
         for (size_t i = first + 1; i < body.size();) {
@@ -542,7 +552,7 @@ static UpdateInfo CheckLatest(DWORD timeoutMs, bool prerelease, std::string* why
         std::string tag, pre, draft;
         if (!JsonKey(body, top, "tag_name", tag)) continue;
         JsonKey(body, top, "prerelease", pre); JsonKey(body, top, "draft", draft);
-        if (draft == "true" || (!prerelease && pre == "true")) { if (tops.size() == 1) w = "latest release is a pre-release"; continue; }
+        if (draft == "true" || (!prerelease && pre == "true")) { if (tops.size() == 1) w = LocalI18n::T("launcher.latest_release_is_a_pre_release.0ec6b1ef53"); continue; }
         if (newestSeen.empty() || VersionGreater(tag, newestSeen)) newestSeen = tag;
         if (!VersionGreater(tag, SCO_VERSION)) continue;
         if (!best.empty() && !VersionGreater(tag, best)) continue;
@@ -550,7 +560,7 @@ static UpdateInfo CheckLatest(DWORD timeoutMs, bool prerelease, std::string* why
         if (ReleaseAsset(body, top, cand, candWhy)) { u = cand; best = tag; }
         else w = candWhy;
     }
-    if (u.tag.empty() && why) *why = !w.empty() ? w : newestSeen.empty() ? std::string("no releases found") : "up to date (latest " + newestSeen + ")";
+    if (u.tag.empty() && why) *why = !w.empty() ? w : newestSeen.empty() ? std::string(LocalI18n::T("launcher.no_releases_found.29e2c2a070")) : LocalI18n::T("launcher.up_to_date_latest.b3774fcb0e") + newestSeen + ")";
     return u;
 }
 
@@ -901,14 +911,13 @@ static bool StageZip(const wstring& root, const wstring& zipPath, const std::str
     const wstring tar = wstring(sys) + L"\\tar.exe";
     DWORD code = 1;
     if (!IsFile(tar) || !RunWait(tar, L"\"" + tar + L"\" -xf \"" + zipPath + L"\" -C \"" + ex + L"\"", ex, code) || code) {
-        Out("[!] couldn't unpack the zip (Windows' tar.exe %s); nothing changed.\n"
-            "    Update by hand: %s\n", IsFile(tar) ? "failed" : "is missing", "https://github.com/scubamount/sc-offline/releases/latest");
+        Out(LocalI18n::T("launcher.couldn_t_unpack_the_zip_windows_tar_exe_s_not.566d0d479e"), IsFile(tar) ? "failed" : "is missing", "https://github.com/scubamount/sc-offline/releases/latest");
         return false;
     }
     const wstring pkg = ex + L"\\sc-offline-" + Wide(tag);
     Manifest man; std::string why;
     if (!LoadManifest(pkg, tag, man, why) || !VerifyAgainstManifest(pkg, man, why)) {
-        Out("[!] the release's manifest check failed (%s); nothing changed\n", why.c_str());
+        Out(LocalI18n::T("launcher.the_release_s_manifest_check_failed_s_nothing.eb7af8b79e"), why.c_str());
         return false;
     }
     for (const wstring& rel : FilesUnder(ex)) {
@@ -917,10 +926,10 @@ static bool StageZip(const wstring& root, const wstring& zipPath, const std::str
         const wstring sub = inPkg ? rel.substr(prefix.size()) : rel;
         bool listed = inPkg && !_wcsicmp(sub.c_str(), L"manifest.json");
         for (const ManifestFile& f : man.files) if (inPkg && !_wcsicmp(SafeRelPath(f.path).c_str(), sub.c_str())) { listed = true; break; }
-        if (!listed) { Out("[!] the zip holds %ls, which its manifest doesn't list; nothing changed\n", rel.c_str()); return false; }
+        if (!listed) { Out(LocalI18n::T("launcher.the_zip_holds_ls_which_its_manifest_doesn_t_l.3e300e912d"), rel.c_str()); return false; }
     }
     if (!IsFile(pkg + L"\\sc-offline.exe") || !IsFile(pkg + L"\\dinput8.dll")) {
-        Out("[!] the release doesn't hold sc-offline.exe and dinput8.dll; nothing changed\n");
+        Out(LocalI18n::T("launcher.the_release_doesn_t_hold_sc_offline_exe_and_d.c0e27c7127"));
         return false;
     }
     CreateDirectoryW(staged.c_str(), nullptr);
@@ -929,15 +938,15 @@ static bool StageZip(const wstring& root, const wstring& zipPath, const std::str
         const size_t cut = rel.find_last_of(L'\\');
         if (cut != wstring::npos) SHCreateDirectoryExW(nullptr, (staged + L"\\" + rel.substr(0, cut)).c_str(), nullptr);
         if (!CopyFileW((pkg + L"\\" + rel).c_str(), (staged + L"\\" + rel).c_str(), FALSE)) {
-            Out("[!] couldn't stage %ls (error %lu); nothing changed\n", rel.c_str(), GetLastError()); return false;
+            Out(LocalI18n::T("launcher.couldn_t_stage_ls_error_lu_nothing_changed.573ee9cf9b"), rel.c_str(), GetLastError()); return false;
         }
     }
     if (!CopyFileW((pkg + L"\\manifest.json").c_str(), (staged + L"\\manifest.json").c_str(), FALSE) ||
         !VerifyAgainstManifest(staged, man, why)) {
-        Out("[!] staging failed (%s); nothing changed\n", why.empty() ? "manifest.json" : why.c_str()); return false;
+        Out(LocalI18n::T("launcher.staging_failed_s_nothing_changed.84d25a2cbf"), why.empty() ? "manifest.json" : why.c_str()); return false;
     }
     RemoveTree(ex);
-    Out("[+] all %zu files match the release manifest (%s); staged\n", man.files.size(), man.tag.c_str());
+    Out(LocalI18n::T("launcher.all_zu_files_match_the_release_manifest_s_sta.0942ab869e"), man.files.size(), man.tag.c_str());
     return true;
 }
 
@@ -950,7 +959,7 @@ static bool StageUpdate(const wstring& here, const UpdateInfo& u) {
     ULARGE_INTEGER freeBytes{};
     const unsigned long long need = (u.size ? u.size : (64ull << 20)) * 6 + (32ull << 20);
     if (GetDiskFreeSpaceExW(root.c_str(), &freeBytes, nullptr, nullptr) && freeBytes.QuadPart < need) {
-        Out("[!] not enough free disk space for the update (%llu MB free, %llu MB needed); nothing changed\n",
+        Out(LocalI18n::T("launcher.not_enough_free_disk_space_for_the_update_llu.fdb60b06bf"),
             freeBytes.QuadPart >> 20, need >> 20);
         return false;
     }
@@ -958,16 +967,16 @@ static bool StageUpdate(const wstring& here, const UpdateInfo& u) {
     std::string zip;
     // D3: the timeout is per read (a stalled download), not for the whole file; one retry.
     bool got = HttpGet(Wide(u.zipUrl), zip, 30000, 256u << 20);
-    if (!got) { Out("[i] the download stalled or failed; trying once more\n"); got = HttpGet(Wide(u.zipUrl), zip, 30000, 256u << 20); }
-    if (!got) { Out("[!] download failed; nothing changed\n"); return false; }
+    if (!got) { Out(LocalI18n::T("launcher.i_the_download_stalled_or_failed_trying_once_.999e08eb0e")); got = HttpGet(Wide(u.zipUrl), zip, 30000, 256u << 20); }
+    if (!got) { Out(LocalI18n::T("launcher.download_failed_nothing_changed.e777b2da81")); return false; }
     const std::string digest = Sha256(zip);
     if (digest != u.sha256) {
-        Out("[!] the download doesn't match GitHub's SHA-256 (got %s, expected %s); nothing changed\n", digest.c_str(), u.sha256.c_str());
+        Out(LocalI18n::T("launcher.the_download_doesn_t_match_github_s_sha_256_g.18d356761e"), digest.c_str(), u.sha256.c_str());
         return false;
     }
-    Out("[+] SHA-256 matches GitHub's digest\n");
+    Out(LocalI18n::T("launcher.sha_256_matches_github_s_digest.86321728f8"));
     const wstring zipPath = root + L"\\" + Wide(u.zipName);
-    if (!WriteAll(zipPath, zip)) { Out("[!] couldn't save the download; nothing changed\n"); return false; }
+    if (!WriteAll(zipPath, zip)) { Out(LocalI18n::T("launcher.couldn_t_save_the_download_nothing_changed.23d411a782")); return false; }
     const bool ok = StageZip(root, zipPath, u.tag);
     DeleteFileW(zipPath.c_str());
     if (!ok) { RemoveTree(root + L"\\staged"); RemoveTree(root + L"\\new"); }
@@ -979,12 +988,18 @@ static bool GameRunning();
 static bool SelfTestPasses(const wstring& here, const std::string& tag);
 
 static bool SwapStaged(const wstring& here, const wstring& staged, const std::string& tag) {
+#ifndef SCO_UPDATE_TEST
+    // RU Local checks upstream releases, but only our reviewed installer may replace binaries.
+    // Keep the barrier here as well: --elevated-update bypasses the normal notify-only CLI.
+    Out(LocalI18n::T("launcher.local_original_update_installation_blocked_lo.2669521125"));
+    return false;
+#endif
     // D4: never swap files under a running game (it may hold dinput8.dll, and the player would get
     // a half-updated mod on the next start).
-    if (GameRunning()) { Out("[!] %ls is running; close it before updating. Nothing changed\n", kGameExe); return false; }
+    if (GameRunning()) { Out(LocalI18n::T("launcher.ls_is_running_close_it_before_updating_nothin.7e2db915f1"), kGameExe); return false; }
     Manifest man; std::string why;
     if (!LoadManifest(staged, tag, man, why) || !VerifyAgainstManifest(staged, man, why)) {
-        Out("[!] the staged update doesn't match its manifest (%s); nothing changed\n", why.c_str());
+        Out(LocalI18n::T("launcher.the_staged_update_doesn_t_match_its_manifest_.5f9d5e530f"), why.c_str());
         return false;
     }
     CreateDirectoryW((here + L"\\data").c_str(), nullptr);
@@ -1014,15 +1029,15 @@ static bool SwapStaged(const wstring& here, const wstring& staged, const std::st
         const bool had = IsFile(dst);
         if (!JournalLine(here, std::string(had ? "R " : "N ") + Narrow(rel))) { DeleteFileW(fresh.c_str()); ok = false; break; }
         if (had && !MoveRetrying(dst, dst + L".update-old", MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
-            Out("[!] couldn't move %ls aside (error %lu)\n", rel.c_str(), GetLastError()); DeleteFileW(fresh.c_str()); ok = false; break;
+            Out(LocalI18n::T("launcher.couldn_t_move_ls_aside_error_lu.b4a197151d"), rel.c_str(), GetLastError()); DeleteFileW(fresh.c_str()); ok = false; break;
         }
         if (!MoveRetrying(fresh, dst, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) || FileSha256(dst) != mf.sha256) {
-            Out("[!] couldn't put %ls in place (error %lu)\n", rel.c_str(), GetLastError()); DeleteFileW(fresh.c_str()); ok = false; break;
+            Out(LocalI18n::T("launcher.couldn_t_put_ls_in_place_error_lu.28e3245d1a"), rel.c_str(), GetLastError()); DeleteFileW(fresh.c_str()); ok = false; break;
         }
         ++(had ? replaced : added); ++done;
     }
     if (!ok) {
-        Out("[!] update failed; putting the old files back\n");
+        Out(LocalI18n::T("launcher.update_failed_putting_the_old_files_back.42987f5abc"));
         RollBackUpdate(here);
         DeleteFileW(Journal(here).c_str());
         return false;
@@ -1030,14 +1045,14 @@ static bool SwapStaged(const wstring& here, const wstring& staged, const std::st
     // D5: the new launcher must start. If its --self-test fails, the old files go back; the
     // .update-old copies stay until the next good start (SettlePreviousUpdate) either way.
     if (!SelfTestPasses(here, tag)) {
-        Out("[!] the new sc-offline.exe failed its self-test; putting the old files back\n");
+        Out(LocalI18n::T("launcher.the_new_sc_offline_exe_failed_its_self_test_p.db3ed5a35e"));
         RollBackUpdate(here);
         DeleteFileW(Journal(here).c_str());
         return false;
     }
     if (IsFile(staged + L"\\sc-offline.ini")) MergeIni(here, staged + L"\\sc-offline.ini", tag);
     JournalLine(here, "done");
-    Out("[+] updated to %s: %d files replaced, %d added; your saves and sc-offline.ini were kept\n", tag.c_str(), replaced, added);
+    Out(LocalI18n::T("launcher.updated_to_s_d_files_replaced_d_added_your_sa.3de5d2cf6f"), tag.c_str(), replaced, added);
     return true;
 }
 
@@ -1046,16 +1061,15 @@ static bool SwapStaged(const wstring& here, const wstring& staged, const std::st
 // starts the game or relaunches, so the new launcher (and the game) still start with normal rights.
 static bool SwapMaybeElevated(const wstring& here, const wstring& staged, const std::string& tag) {
     if (CanWriteTo(here) && CanWriteTo(here + L"\\data")) return SwapStaged(here, staged, tag);
-    Out("[i] this folder needs administrator rights to update; Windows will ask once.\n"
-        "    (Only the file swap runs as administrator; the game never does.)\n");
+    Out(LocalI18n::T("launcher.i_this_folder_needs_administrator_rights_to_u.0d3afc940d"));
     wchar_t self[MAX_PATH * 2]; GetModuleFileNameW(nullptr, self, ARRAYSIZE(self));
     const wstring args = L"--elevated-update " + Wide(tag) + L" \"" + staged + L"\"";
     SHELLEXECUTEINFOW sei{}; sei.cbSize = sizeof(sei); sei.fMask = SEE_MASK_NOCLOSEPROCESS;
     sei.lpVerb = L"runas"; sei.lpFile = self; sei.lpParameters = args.c_str(); sei.lpDirectory = here.c_str(); sei.nShow = SW_SHOWNORMAL;
-    if (!ShellExecuteExW(&sei) || !sei.hProcess) { Out("[!] administrator rights refused; nothing changed\n"); return false; }
+    if (!ShellExecuteExW(&sei) || !sei.hProcess) { Out(LocalI18n::T("launcher.administrator_rights_refused_nothing_changed.670a9ab717")); return false; }
     WaitForSingleObject(sei.hProcess, INFINITE);
     DWORD code = 1; GetExitCodeProcess(sei.hProcess, &code); CloseHandle(sei.hProcess);
-    if (code) { Out("[!] the update failed (exit %lu); see data\\launcher.log. Your current version is unchanged.\n", code); return false; }
+    if (code) { Out(LocalI18n::T("launcher.the_update_failed_exit_lu_see_data_launcher_l.80308d2169"), code); return false; }
     return true;
 }
 
@@ -1097,13 +1111,13 @@ static bool SelfTestPasses(const wstring& here, const std::string& tag) {
         SaferCloseLevel(level);
     }
     if (!started) started = CreateProcessW(exe.c_str(), cmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, here.c_str(), &si, &pi) != 0;
-    if (!started) { Out("[!] couldn't start the new sc-offline.exe (error %lu)\n", GetLastError()); return false; }
+    if (!started) { Out(LocalI18n::T("launcher.couldn_t_start_the_new_sc_offline_exe_error_l.978dc7288e"), GetLastError()); return false; }
     DWORD code = 1;
-    if (WaitForSingleObject(pi.hProcess, 30000) != WAIT_OBJECT_0) { TerminateProcess(pi.hProcess, 1); WaitForSingleObject(pi.hProcess, 5000); Out("[!] the new sc-offline.exe hung in its self-test\n"); }
+    if (WaitForSingleObject(pi.hProcess, 30000) != WAIT_OBJECT_0) { TerminateProcess(pi.hProcess, 1); WaitForSingleObject(pi.hProcess, 5000); Out(LocalI18n::T("launcher.the_new_sc_offline_exe_hung_in_its_self_test.b05eb65a36")); }
     else GetExitCodeProcess(pi.hProcess, &code);
     CloseHandle(pi.hThread); CloseHandle(pi.hProcess);
-    if (code) { Out("[!] the new sc-offline.exe --self-test exited %lu\n", code); return false; }
-    Out("[+] the new sc-offline.exe passed its self-test\n");
+    if (code) { Out(LocalI18n::T("launcher.the_new_sc_offline_exe_self_test_exited_lu.43cbfa246d"), code); return false; }
+    Out(LocalI18n::T("launcher.the_new_sc_offline_exe_passed_its_self_test.3acee0a3f8"));
     return true;
 }
 
@@ -1112,10 +1126,10 @@ static bool SelfTestPasses(const wstring& here, const std::string& tag) {
 // nothing, reads no network.
 static int SelfTest(const std::string& tag) {
     const wstring here = ExeDir();
-    if (tag != std::string("v") + SCO_VERSION) { std::printf("self-test: this is %s, expected %s\n", SCO_VERSION, tag.c_str()); return 2; }
-    if (Sha256("abc") != "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad") { std::printf("self-test: SHA-256 broken\n"); return 3; }
-    if (!IsFile(here + L"\\dinput8.dll")) { std::printf("self-test: no dinput8.dll beside sc-offline.exe\n"); return 4; }
-    std::printf("self-test: sc-offline %s ok\n", SCO_VERSION);
+    if (tag != std::string("v") + SCO_VERSION) { std::printf(LocalI18n::T("launcher.self_test_this_is_s_expected_s.11731d15a5"), SCO_VERSION, tag.c_str()); return 2; }
+    if (Sha256("abc") != "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad") { std::printf(LocalI18n::T("launcher.self_test_sha_256_broken.5272e94ab3")); return 3; }
+    if (!IsFile(here + L"\\dinput8.dll")) { std::printf(LocalI18n::T("launcher.self_test_no_dinput8_dll_beside_sc_offline_ex.259077107e")); return 4; }
+    std::printf(LocalI18n::T("launcher.self_test_sc_offline_s_ok.4b652b7f72"), SCO_VERSION);
     return 0;
 }
 
@@ -1154,7 +1168,7 @@ static void Relaunch(const wstring& here) {
     STARTUPINFOW si{}; si.cb = sizeof(si);
     PROCESS_INFORMATION pi{};
     if (!CreateProcessW(exe.c_str(), cmd.data(), nullptr, nullptr, FALSE, 0, nullptr, here.c_str(), &si, &pi)) {
-        Out("[!] couldn't start the new launcher (error %lu); run sc-offline.exe again\n", GetLastError());
+        Out(LocalI18n::T("launcher.couldn_t_start_the_new_launcher_error_lu_run_.7b3c827f31"), GetLastError());
         PauseIfOwnConsole();
         ExitProcess(kExitError);
     }
@@ -1330,23 +1344,22 @@ static bool AskYes(const char* question) {
 
 static void OfferToCleanLogs(const wstring& channelDir, ULONGLONG since) {
     const std::vector<wstring> files = SessionLogs(channelDir, since);
-    if (files.empty()) { Out("Logs:     the game wrote no logs this session\n"); return; }
-    Out("\nThe game wrote these logs during this modded session:\n");
+    if (files.empty()) { Out(LocalI18n::T("launcher.logs_the_game_wrote_no_logs_this_session.cf8159ee58")); return; }
+    Out(LocalI18n::T("launcher.the_game_wrote_these_logs_during_this_modded_.ee640c79b1"));
     for (const wstring& f : files) Out("    %ls\n", f.c_str());
-    Out("Deleting them removes the record of this session from your game folder. Keep Game.log if you\n"
-        "want to report a bug. Older logs are not touched. (clean_logs = off in sc-offline.ini skips this.)\n");
-    if (!AskYes("Delete these files?")) { Out("Logs:     kept\n"); return; }
-    if (!AskYes("Are you sure? They can't be recovered.")) { Out("Logs:     kept\n"); return; }
+    Out(LocalI18n::T("launcher.deleting_them_removes_the_record_of_this_sess.21dd0bac85"));
+    if (!AskYes(LocalI18n::T("launcher.delete_these_files.f2585ea31c"))) { Out(LocalI18n::T("launcher.logs_kept.56325f1a1d")); return; }
+    if (!AskYes(LocalI18n::T("launcher.are_you_sure_they_can_t_be_recovered.bb87e6d91c"))) { Out(LocalI18n::T("launcher.logs_kept.56325f1a1d")); return; }
     int gone = 0, failed = 0, denied = 0;
     for (const wstring& f : files) {
         if (DeleteFileW(f.c_str())) ++gone;
         else if (GetLastError() == ERROR_ACCESS_DENIED) ++denied;
-        else { ++failed; Out("[!] couldn't delete %ls (error %lu)\n", f.c_str(), GetLastError()); }
+        else { ++failed; Out(LocalI18n::T("launcher.couldn_t_delete_ls_error_lu.6395d6e9c9"), f.c_str(), GetLastError()); }
     }
     if (denied) {
         // Issue #16: the game folder needs administrator rights. One UAC prompt; the elevated run
         // works out this session's files again itself (DeleteSessionLogs), it isn't handed a list.
-        Out("[i] %d file%s need administrator rights to delete; Windows will ask once.\n", denied, denied == 1 ? "" : "s");
+        Out(LocalI18n::T("launcher.i_d_file_s_need_administrator_rights_to_delet.247ea65fbf"), denied, denied == 1 ? "" : "s");
         wchar_t self[MAX_PATH * 2]; GetModuleFileNameW(nullptr, self, ARRAYSIZE(self));
         const wstring args = L"--delete-logs \"" + channelDir + L"\" " + std::to_wstring(since);
         SHELLEXECUTEINFOW sei{}; sei.cbSize = sizeof(sei); sei.fMask = SEE_MASK_NOCLOSEPROCESS;
@@ -1357,9 +1370,9 @@ static void OfferToCleanLogs(const wstring& channelDir, ULONGLONG since) {
         }
         const size_t left = SessionLogs(channelDir, since).size();
         if (code == 0 && left == 0) gone += denied;
-        else { failed += (int)left; Out("[!] %zu file%s still there (administrator rights refused?)\n", left, left == 1 ? "" : "s"); }
+        else { failed += (int)left; Out(LocalI18n::T("launcher.zu_file_s_still_there_administrator_rights_re.bac977e2ee"), left, left == 1 ? "" : "s"); }
     }
-    Out("Logs:     deleted %d file%s%s\n", gone, gone == 1 ? "" : "s", failed ? "; see above for the rest" : "");
+    Out(LocalI18n::T("launcher.logs_deleted_d_file_s_s.60e3b88df5"), gone, gone == 1 ? "" : "s", failed ? LocalI18n::T("launcher.see_above_for_the_rest.bb4327ccae") : "");
 }
 
 // --delete-logs <channel folder> <since>: the elevated half of OfferToCleanLogs. Only acts on a
@@ -1410,7 +1423,7 @@ static void FromRemembered(const wstring& here, const wstring& channel, std::vec
     if (!ReadAll(RememberedPathFile(here), bytes)) return;
     wstring w(bytes.size(), L'\0');
     w.resize(MultiByteToWideChar(CP_UTF8, 0, bytes.data(), (int)bytes.size(), w.data(), (int)w.size()));
-    AddFound(out, ToBin64(Trim(w), channel), "remembered from your last run");
+    AddFound(out, ToBin64(Trim(w), channel), LocalI18n::T("launcher.remembered_from_your_last_run.4cf0f1b501"));
 }
 
 // HKLM/HKCU ...\Uninstall\*: the RSI Launcher's InstallLocation is usually
@@ -1441,7 +1454,7 @@ static void FromUninstallKeys(const wstring& channel, std::vector<Found>& out) {
                 const size_t cut = l.find_last_of(L"\\/");
                 if (cut != wstring::npos) bin = ToBin64(l.substr(0, cut), channel);
             }
-            AddFound(out, bin, "from the RSI Launcher's install entry");
+            AddFound(out, bin, LocalI18n::T("launcher.from_the_rsi_launcher_s_install_entry.f7c9be2075"));
         }
         RegCloseKey(h);
     }
@@ -1879,11 +1892,9 @@ static void OfferCrashReport(const wstring& here, const wstring& channelDir, ULO
     if (crash.empty()) return;
     int dumps = 0;
     for (const wstring& f : crash) if (!IsTextReport(f)) ++dumps;
-    Out("\n[!] the game crashed this session (%zu file%s in %ls\\Crashes).\n", crash.size(), crash.size() == 1 ? "" : "s", channelDir.c_str());
-    Out("    A crash report zips mod.log, launcher.log, Game.log and the crash text files into data\\crash-reports,\n"
-        "    with your RSI handle, account numbers and Windows user name replaced. Nothing is sent: you attach\n"
-        "    the zip to the bug form yourself.%s\n", dumps ? " Memory dumps (.dmp) are left out; they can't be redacted." : "");
-    if (!AskYes("Make a crash report?")) { Out("Crash:    no report made\n"); return; }
+    Out(LocalI18n::T("launcher.the_game_crashed_this_session_zu_file_s_in_ls.a810ad5c0a"), crash.size(), crash.size() == 1 ? "" : "s", channelDir.c_str());
+    Out(LocalI18n::T("launcher.a_crash_report_zips_mod_log_launcher_log_game.5a388d99ae"), dumps ? LocalI18n::T("launcher.memory_dumps_dmp_are_left_out_they_can_t_be_r.369662637a") : "");
+    if (!AskYes(LocalI18n::T("launcher.make_a_crash_report.6243c3a451"))) { Out(LocalI18n::T("launcher.crash_no_report_made.34a7cd94c4")); return; }
 
     struct Item { wstring src; wstring name; };
     std::vector<Item> items = { { here + L"\\data\\mod.log", L"mod.log" }, { here + L"\\data\\launcher.log", L"launcher.log" },
@@ -1922,10 +1933,10 @@ static void OfferCrashReport(const wstring& here, const wstring& channelDir, ULO
     const bool zipped = IsFile(tar) && RunWait(tar, L"\"" + tar + L"\" -a -cf \"" + zip + L"\" -C \"" + stage + L"\" .", stage, code) && code == 0;
     if (zipped) RemoveTree(stage);
     const wstring made = zipped ? zip : stage;
-    Out("Crash:    report saved: %ls (%d file%s%s)\n", made.c_str(), put, put == 1 ? "" : "s",
-        zipped ? "" : "; tar.exe failed, so it is a folder - zip it yourself");
-    Out("          Look through it before you share it: the redaction covers handle, IDs and user name only.\n");
-    if (!AskYes("Open the bug form in your browser (you attach the zip there)?")) return;
+    Out(LocalI18n::T("launcher.crash_report_saved_ls_d_file_s_s.7ffee8b83c"), made.c_str(), put, put == 1 ? "" : "s",
+        zipped ? "" : LocalI18n::T("launcher.tar_exe_failed_so_it_is_a_folder_zip_it_yours.466e4690fc"));
+    Out(LocalI18n::T("launcher.look_through_it_before_you_share_it_the_redac.e5a83bb1c0"));
+    if (!AskYes(LocalI18n::T("launcher.open_the_bug_form_in_your_browser_you_attach_.a052f8f44e"))) return;
     const std::string url = "https://github.com/scubamount/sc-offline/issues/new?template=bug.yml&title=" +
         UrlEncode("Crash: ") + "&version=" + UrlEncode(SCO_VERSION) + "&game=" + UrlEncode(gameBuild) +
         "&os=" + UrlEncode(OnWine() ? "Linux (Wine/Proton)" : "Windows");
@@ -2109,9 +2120,9 @@ static std::string PcChangesLeft() {
 
 static void DescribePcChanges(const std::string& rec) {
     for (const FwRule& r : kFwRules)
-        if (Field(rec, r.key) == "added") Out("          - firewall rule \"%ls\"\n", r.name);
-    if (Field(rec, "hosts") == "added")    Out("          - hosts line for %s\n", kEacHost);
-    if (Field(rec, "eac") == "renamed")    Out("          - EasyAntiCheat_EOS.exe renamed to .bak\n");
+        if (Field(rec, r.key) == "added") Out(LocalI18n::T("launcher.firewall_rule_ls.76bbfaec22"), r.name);
+    if (Field(rec, "hosts") == "added")    Out(LocalI18n::T("launcher.hosts_line_for_s.46bed6b4ba"), kEacHost);
+    if (Field(rec, "eac") == "renamed")    Out(LocalI18n::T("launcher.easyanticheat_eos_exe_renamed_to_bak.56f0d7a0d0"));
 }
 
 // Undoes what the record says this launcher did, then deletes the record. 0 ok, 5 something stayed.
@@ -2120,19 +2131,19 @@ static int UndoPcChanges(bool dry) {
     if (rec.empty()) return 0;
     int rc = 0;
     for (const FwRule& r : kFwRules) {
-        if (Field(rec, r.key) == "added" && Step(dry, "remove the firewall rule \"%ls\"", r.name) &&
+        if (Field(rec, r.key) == "added" && Step(dry, LocalI18n::T("launcher.remove_the_firewall_rule_ls.3fe7b9f614"), r.name) &&
             !DeleteFirewallRule(r.name) && FirewallRuleExists(r.name)) {
-            Out("[!] couldn't remove the firewall rule; remove \"%ls\" in Windows Defender Firewall\n", r.name); rc = 5;
+            Out(LocalI18n::T("launcher.couldn_t_remove_the_firewall_rule_remove_ls_i.50e387b098"), r.name); rc = 5;
         }
     }
-    if (Field(rec, "hosts") == "added" && Step(dry, "remove sc-offline's line from the hosts file")) {
+    if (Field(rec, "hosts") == "added" && Step(dry, LocalI18n::T("launcher.remove_sc_offline_s_line_from_the_hosts_file.7cb2bd74ab"))) {
         if (RemoveHostsLine()) FlushDns();
-        else { Out("[!] couldn't edit %ls (error %lu); delete the %s line by hand\n", HostsPath().c_str(), GetLastError(), kEacHost); rc = 5; }
+        else { Out(LocalI18n::T("launcher.couldn_t_edit_ls_error_lu_delete_the_s_line_b.b212721844"), HostsPath().c_str(), GetLastError(), kEacHost); rc = 5; }
     }
-    if (Field(rec, "eac") == "renamed" && Step(dry, "rename EasyAntiCheat_EOS.exe.bak back")) {
+    if (Field(rec, "eac") == "renamed" && Step(dry, LocalI18n::T("launcher.rename_easyanticheat_eos_exe_bak_back.eb5ba59dd1"))) {
         const wstring exe = EacExe(), bak = exe + L".bak";
         if (IsFile(bak) && !IsFile(exe) && !MoveFileExW(bak.c_str(), exe.c_str(), 0)) {
-            Out("[!] couldn't rename %ls back (error %lu)\n", bak.c_str(), GetLastError()); rc = 5;
+            Out(LocalI18n::T("launcher.couldn_t_rename_ls_back_error_lu.a455493ae2"), bak.c_str(), GetLastError()); rc = 5;
         }
     }
     if (rc == 0 && !dry) DeleteFileW(PcChangesPath().c_str());
@@ -2161,45 +2172,45 @@ static int ApplyPcChanges(const PcWanted& w, const wstring& gameExe, bool dry) {
         const wstring exes[] = { gameExe, RsiLauncherExe(bin), CrashHandlerExe(bin) };
         std::vector<Ipv4Range> allow;
         wstring allowText;
-        if (w.lan && !ParseAllowList(w.allow, allow, allowText)) { Out("[!] multiplayer_allow ignored (not a list of IPv4 ranges)\n"); allow.clear(); allowText.clear(); }
+        if (w.lan && !ParseAllowList(w.allow, allow, allowText)) { Out(LocalI18n::T("launcher.multiplayer_allow_ignored_not_a_list_of_ipv4_.88cc279efc")); allow.clear(); allowText.clear(); }
         for (size_t i = 0; i < ARRAYSIZE(exes); ++i) {   // kFwRules' first three: the block rules
             const FwRule& r = kFwRules[i];
-            if (exes[i].empty()) { if (i == 1) Out("[i] RSI Launcher.exe not found; not blocking it\n"); continue; }
-            if (Field(rec, r.key) == "added" && !dry && FirewallRuleExists(r.name)) Out("[i] firewall rule \"%ls\" already in place\n", r.name);
-            else if (Step(dry, "add a firewall rule blocking %ls", exes[i].c_str())) {
+            if (exes[i].empty()) { if (i == 1) Out(LocalI18n::T("launcher.i_rsi_launcher_exe_not_found_not_blocking_it.855f01404a")); continue; }
+            if (Field(rec, r.key) == "added" && !dry && FirewallRuleExists(r.name)) Out(LocalI18n::T("launcher.i_firewall_rule_ls_already_in_place.a22ad95b45"), r.name);
+            else if (Step(dry, LocalI18n::T("launcher.add_a_firewall_rule_blocking_ls.c9f10f95d3"), exes[i].c_str())) {
                 const wstring remote = i == 0 && w.lan ? BlockedOutsideLan(allow) : L"";
                 bool added = AddFirewallRule(r.name, exes[i], remote);
                 if (!added && !remote.empty()) {   // fail closed: block every address, as without multiplayer
                     DeleteFirewallRule(r.name);
-                    Out("[!] couldn't leave your LAN open in the firewall rule; blocking every address (multiplayer can't reach other PCs)\n");
+                    Out(LocalI18n::T("launcher.couldn_t_leave_your_lan_open_in_the_firewall_.049362bae5"));
                     added = AddFirewallRule(r.name, exes[i]);
                 }
-                if (!added) { Out("[!] couldn't add the firewall rule (netsh failed)\n"); DeleteFirewallRule(r.name); return 5; }
+                if (!added) { Out(LocalI18n::T("launcher.couldn_t_add_the_firewall_rule_netsh_failed.7f0f890284")); DeleteFirewallRule(r.name); return 5; }
                 record(r.key, "added");
             }
         }
         if (w.lan) {
-            if (Field(rec, "fw_mp") == "added" && !dry && FirewallRuleExists(kMpRule)) Out("[i] firewall rule \"%ls\" already in place\n", kMpRule);
-            else if (Step(dry, "add a firewall rule letting your LAN%ls reach %ls over UDP (multiplayer)", allowText.empty() ? L"" : L" and multiplayer_allow", gameExe.c_str())) {
+            if (Field(rec, "fw_mp") == "added" && !dry && FirewallRuleExists(kMpRule)) Out(LocalI18n::T("launcher.i_firewall_rule_ls_already_in_place.a22ad95b45"), kMpRule);
+            else if (Step(dry, LocalI18n::T("launcher.add_a_firewall_rule_letting_your_lan_ls_reach.bab3b7f66b"), allowText.empty() ? L"" : L" and multiplayer_allow", gameExe.c_str())) {
                 if (AddMultiplayerRule(gameExe, allowText)) record("fw_mp", "added");
-                else { DeleteFirewallRule(kMpRule); Out("[!] couldn't add the multiplayer firewall rule; a session you host may not be reachable\n"); }
+                else { DeleteFirewallRule(kMpRule); Out(LocalI18n::T("launcher.couldn_t_add_the_multiplayer_firewall_rule_a_.fa54510b3e")); }
             }
         }
     }
     if (w.eacHosts) {
         if (HostsBlocksEac()) Out("[i] hosts file already blocks %s\n", kEacHost);
-        else if (Step(dry, "add `127.0.0.1 %s` to the hosts file", kEacHost)) {
-            if (!AddHostsLine()) { Out("[!] couldn't edit %ls (error %lu); antivirus may protect it\n", HostsPath().c_str(), GetLastError()); return 5; }
+        else if (Step(dry, LocalI18n::T("launcher.add_127_0_0_1_s_to_the_hosts_file.7011f255f4"), kEacHost)) {
+            if (!AddHostsLine()) { Out(LocalI18n::T("launcher.couldn_t_edit_ls_error_lu_antivirus_may_prote.a4d774a9be"), HostsPath().c_str(), GetLastError()); return 5; }
             record("hosts", "added");
             FlushDns();
         }
     }
     if (w.eacRename) {
         const wstring exe = EacExe(), bak = exe + L".bak";
-        if (!IsFile(exe)) Out("[i] Easy Anti-Cheat is already off or not installed\n");
-        else if (Step(dry, "rename EasyAntiCheat_EOS.exe to .bak")) {
+        if (!IsFile(exe)) Out(LocalI18n::T("launcher.i_easy_anti_cheat_is_already_off_or_not_insta.028a8d7bcb"));
+        else if (Step(dry, LocalI18n::T("launcher.rename_easyanticheat_eos_exe_to_bak.730fdde6a7"))) {
             if (!MoveFileExW(exe.c_str(), bak.c_str(), MOVEFILE_REPLACE_EXISTING)) {
-                Out("[!] couldn't rename %ls (error %lu)\n", exe.c_str(), GetLastError()); return 5;
+                Out(LocalI18n::T("launcher.couldn_t_rename_ls_error_lu.9525b41239"), exe.c_str(), GetLastError()); return 5;
             }
             record("eac", "renamed");
         }
@@ -2267,7 +2278,7 @@ static int Helper(const wstring& op, const wstring& bin, DWORD parentPid, const 
     const int taken = TakeMod(g, false);
     const bool hadPc = !PcChangesLeft().empty();
     const int undone = UndoPcChanges(false);
-    if (hadPc && undone == 0) Out("[+] PC changes undone\n");
+    if (hadPc && undone == 0) Out(LocalI18n::T("launcher.pc_changes_undone.3f6b83643a"));
     return taken ? taken : undone;
 }
 
@@ -2352,12 +2363,9 @@ static HANDLE StartHelper(const wchar_t* op, const GamePaths& g, const wstring& 
         return pi.hProcess;
     }
     if (pcChanges)
-        Out("[i] Windows will ask for administrator rights once: the helper blocks the game's network and\n"
-            "    turns Easy Anti-Cheat off while you play, and undoes both when the game closes.\n"
-            "    Only the helper runs as administrator, not the game.\n");
+        Out(LocalI18n::T("launcher.i_windows_will_ask_for_administrator_rights_o.841ec4ae28"));
     else
-        Out("[i] the game folder needs administrator rights for the mod; Windows will ask once.\n"
-            "    Only the copy/remove helper runs as administrator, not the game.\n");
+        Out(LocalI18n::T("launcher.i_the_game_folder_needs_administrator_rights_.fb07d6b05d"));
     SHELLEXECUTEINFOW sei{};
     sei.cbSize = sizeof(sei);
     sei.fMask = SEE_MASK_NOCLOSEPROCESS;
@@ -2372,7 +2380,7 @@ static HANDLE StartHelper(const wchar_t* op, const GamePaths& g, const wstring& 
 // Ctrl+C would kill only this window; the helper still cleans up, but say so instead of dying.
 static BOOL WINAPI OnCtrl(DWORD type) {
     if (type == CTRL_C_EVENT || type == CTRL_BREAK_EVENT) {
-        std::printf("\n[i] Ctrl+C ignored: close the game instead. The mod is removed when it exits.\n");
+        std::printf(LocalI18n::T("launcher.i_ctrl_c_ignored_close_the_game_instead_the_m.e69574288f"));
         return TRUE;
     }
     return FALSE;   // window closed / logoff: let it go; the helper removes the mod
@@ -2382,19 +2390,45 @@ static void SetVar(const wchar_t* name, const wstring& v) {
     SetEnvironmentVariableW(name, v.empty() ? nullptr : v.c_str());   // empty = unset
 }
 
+// The server helper uses the paired token locally; credentials never appear in CLI/logs.
+static bool LocalServerControl(const wstring& here, bool stop) {
+    const wstring runner = here + L"\\server\\run_server.py";
+    if (!IsFile(runner)) { Out(LocalI18n::T("launcher.local_server_files_were_not_found_next_to_the.a8c383bf71")); return false; }
+    wchar_t local[32768] = {}, found[32768] = {};
+    GetEnvironmentVariableW(L"LOCALAPPDATA", local, ARRAYSIZE(local));
+    wstring python = wstring(local) + L"\\Programs\\Python\\Python311\\python.exe";
+    if (!IsFile(python)) {
+        const DWORD n = SearchPathW(nullptr,L"python.exe",nullptr,ARRAYSIZE(found),found,nullptr);
+        if (!n || n >= ARRAYSIZE(found)) { Out(LocalI18n::T("launcher.python_for_the_local_server_was_not_found.97e5edddb6")); return false; }
+        python = found;
+    }
+    wstring line = L"\"" + python + L"\" -X utf8 \"" + runner + L"\" " + (stop ? L"--stop" : L"--ensure");
+    STARTUPINFOW si{}; si.cb = sizeof(si); PROCESS_INFORMATION pi{};
+    if (!CreateProcessW(python.c_str(),line.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,here.c_str(),&si,&pi)) {
+        Out(LocalI18n::T("launcher.could_not_start_server_management_error_lu.104e4f3ff6"),GetLastError()); return false;
+    }
+    DWORD code = 1;
+    if (WaitForSingleObject(pi.hProcess,15000) == WAIT_OBJECT_0) GetExitCodeProcess(pi.hProcess,&code);
+    else { TerminateProcess(pi.hProcess,1); Out(LocalI18n::T("launcher.server_did_not_respond_in_time_check_server_s.8004c37478")); }
+    CloseHandle(pi.hThread); CloseHandle(pi.hProcess);
+    Out(code ? LocalI18n::T("launcher.server_management_failed_check_server_server_.7728c9bd91") :
+        stop ? LocalI18n::T("launcher.i_local_server_stopped_data_saved.88ef43fb73") : LocalI18n::T("launcher.i_local_server_available_http_127_0_0_1_18870.d69d09167e"));
+    return code == 0;
+}
+
 struct CheckResult { bool eacActive = false, pcLeftover = false; std::string gameBuild; };
 
 static CheckResult SelfChecks(const wstring& here, const Config& cfg, const GamePaths& g) {
     CheckResult r;
     // 1. The DLL this launcher would copy in.
     const DllInfo mod = Identify(here + L"\\dinput8.dll");
-    if (!mod.present) Out("Mod DLL:  missing (dinput8.dll next to sc-offline.exe)\n");
+    if (!mod.present) Out(LocalI18n::T("launcher.mod_dll_missing_dinput8_dll_next_to_sc_offlin.b9c56097e2"));
     else {
-        Out("Mod DLL:  %s\n          sha256 %s\n", mod.what.c_str(), mod.sha.c_str());
+        Out(LocalI18n::T("launcher.mod_dll_s_sha256_s.da44e99cea"), mod.what.c_str(), mod.sha.c_str());
         if (mod.sha == kPrebuiltSha256 && _wcsicmp(cfg.bootMap.c_str(), L"PU"))
-            Out("[!] the prebuilt DLL only knows boot_map = PU; set that in sc-offline.ini (now %ls)\n", cfg.bootMap.c_str());
+            Out(LocalI18n::T("launcher.the_prebuilt_dll_only_knows_boot_map_pu_set_t.ed5acf4ab3"), cfg.bootMap.c_str());
         if (!mod.version.empty() && mod.version != SCO_VERSION)
-            Out("[i] this launcher is %s; the DLL is %s\n", SCO_VERSION, mod.version.c_str());
+            Out(LocalI18n::T("launcher.i_this_launcher_is_s_the_dll_is_s.6623119c32"), SCO_VERSION, mod.version.c_str());
     }
 
     // 2. The game build, against the one recorded after the last play.
@@ -2402,52 +2436,47 @@ static CheckResult SelfChecks(const wstring& here, const Config& cfg, const Game
     std::string last;
     ReadAll(here + L"\\data\\game-build.txt", last);
     while (!last.empty() && (last.back() == '\n' || last.back() == '\r')) last.pop_back();
-    Out("Game:     %s\n", r.gameBuild.empty() ? "(version unknown)" : r.gameBuild.c_str());
+    Out(LocalI18n::T("launcher.game_s.e8783a3210"), r.gameBuild.empty() ? LocalI18n::T("launcher.version_unknown.44901c136e") : r.gameBuild.c_str());
     if (!last.empty() && !r.gameBuild.empty() && last != r.gameBuild)
-        Out("[!] the game updated since you last played (was %s).\n"
-            "    If the mod misbehaves, check for a newer sc-offline release.\n", last.c_str());
+        Out(LocalI18n::T("launcher.the_game_updated_since_you_last_played_was_s_.0169bb18d1"), last.c_str());
 
     // 3. What is in the game folder now.
     std::string marker;
     const bool haveMarker = ReadAll(g.marker, marker);
     const DllInfo inGame = Identify(g.dll);
-    if (!inGame.present) Out("Installed: no (Bin64 has no dinput8.dll)\n");
+    if (!inGame.present) Out(LocalI18n::T("launcher.installed_no_bin64_has_no_dinput8_dll.b96d4bb6c6"));
     else if (haveMarker || inGame.ours)
-        Out("Installed: yes, %s%s%s\n", inGame.what.c_str(), haveMarker ? ", since " : "",
+        Out(LocalI18n::T("launcher.installed_yes_s_s_s.41a8d2ac4c"), inGame.what.c_str(), haveMarker ? LocalI18n::T("launcher.since.a0f2cd44fb") : "",
             haveMarker ? Field(marker, "time").c_str() : "");
-    else Out("Installed: no; Bin64 has another mod's dinput8.dll (it is set aside while you play)\n");
+    else Out(LocalI18n::T("launcher.installed_no_bin64_has_another_mod_s_dinput8_.b6d2376784"));
     if ((haveMarker || inGame.ours) && inGame.present && !GameRunning())
-        Out("[!] the mod is still in the game folder (a crash, or `install`).\n"
-            "    Run `sc-offline.exe uninstall` before going online.\n");
+        Out(LocalI18n::T("launcher.the_mod_is_still_in_the_game_folder_a_crash_o.b7557a6548"));
 
     // 4. What sc-offline changed on the PC, if a previous run didn't get to undo it (a crash).
     const std::string pcLeft = PcChangesLeft();
     if (!pcLeft.empty()) {
         r.pcLeftover = true;
-        Out("[!] PC changes from a previous run (%s) are still in place:\n", Field(pcLeft, "time").c_str());
+        Out(LocalI18n::T("launcher.pc_changes_from_a_previous_run_s_are_still_in.f634d17714"), Field(pcLeft, "time").c_str());
         DescribePcChanges(pcLeft);
-        if (!GameRunning()) Out("    Run `sc-offline.exe uninstall` to undo them before going online.\n");
+        if (!GameRunning()) Out(LocalI18n::T("launcher.run_sc_offline_exe_uninstall_to_undo_them_bef.b7a9bc965d"));
     }
-    if (!OnWine()) Out("Network:  %s%s\n", cfg.firewall ? "blocked for StarCitizen.exe, RSI Launcher.exe and CrashHandler.exe while you play (block_network)"
-                                                         : "NOT blocked (block_network = off)",
-                       cfg.firewall && cfg.multiplayer ? "; your LAN stays reachable for the Multiplayer tab (multiplayer)" : "");
+    if (!OnWine()) Out(LocalI18n::T("launcher.network_s_s.da813db483"), cfg.firewall ? LocalI18n::T("launcher.blocked_for_starcitizen_exe_rsi_launcher_exe_.6688227c64")
+                                                         : LocalI18n::T("launcher.not_blocked_block_network_off.64293e48bf"),
+                       cfg.firewall && cfg.multiplayer ? LocalI18n::T("launcher.your_lan_stays_reachable_for_the_multiplayer_.80cd5f3f8a") : "");
 
     // 5. Easy Anti-Cheat.
     const Eac eac = EacState();
-    Out("EAC:      %s\n", eac == Eac::Active ? "ACTIVE" : eac == Eac::Disabled ? "disabled (EasyAntiCheat_EOS.exe.bak)" : "not installed");
-    if (OnWine()) Out("Hosts:    checked by sc-offline.sh against /etc/hosts\n");
-    else Out("Hosts:    %s\n", HostsBlocksEac() ? "EAC download server blocked" : "EAC download server NOT blocked");
+    Out("EAC:      %s\n", eac == Eac::Active ? LocalI18n::T("launcher.active.630c2f1c0e") : eac == Eac::Disabled ? LocalI18n::T("launcher.disabled_easyanticheat_eos_exe_bak.569381eab4") : LocalI18n::T("launcher.not_installed.e9363f76e1"));
+    if (OnWine()) Out(LocalI18n::T("launcher.hosts_checked_by_sc_offline_sh_against_etc_ho.649a30612d"));
+    else Out("Hosts:    %s\n", HostsBlocksEac() ? LocalI18n::T("launcher.eac_download_server_blocked.627d4acd12") : LocalI18n::T("launcher.eac_download_server_not_blocked.f2eba34f9e"));
     const bool autoEac = !OnWine() && cfg.eacRename;
     r.eacActive = eac == Eac::Active;
     if (eac == Eac::Active && autoEac) {
-        Out("[i] Easy Anti-Cheat is on; `play` turns it off while you play and back on afterwards (eac_rename).\n");
+        Out(LocalI18n::T("launcher.i_easy_anti_cheat_is_on_play_turns_it_off_whi.fdd6f07a19"));
     } else if (eac == Eac::Active) {
-        Out("[!] Easy Anti-Cheat is active; the mod can't run with it. In PowerShell as administrator:\n"
-            "      ren \"C:\\Program Files (x86)\\EasyAntiCheat_EOS\\EasyAntiCheat_EOS.exe\" EasyAntiCheat_EOS.exe.bak\n"
-            "    and block modules-cdn.eac-prod.on.epicgames.com in your hosts file (README, Setup).\n");
+        Out(LocalI18n::T("launcher.easy_anti_cheat_is_active_the_mod_can_t_run_w.9d2aa59658"));
     } else if (!OnWine() && !cfg.eacHosts && !HostsBlocksEac()) {
-        Out("[i] add `127.0.0.1 modules-cdn.eac-prod.on.epicgames.com` to your hosts file so the RSI Launcher\n"
-            "    doesn't download Easy Anti-Cheat again (README, Setup).\n");
+        Out(LocalI18n::T("launcher.i_add_127_0_0_1_modules_cdn_eac_prod_on_epicg.fa0668f57a"));
     }
     if (OnWine()) {
         wchar_t ov[512];
@@ -2469,19 +2498,20 @@ static CheckResult SelfChecks(const wstring& here, const Config& cfg, const Game
 enum { kMsgOutput = WM_APP + 1, kMsgDone };
 
 enum Action { kActNone, kActPlay, kActStatus, kActUpdate, kActInstall, kActUninstall, kActSettings, kActLogs,
-              kActYes, kActNo, kActCopy, kActMinimize, kActClose, kActPluginsDir, kActPluginsOn, kActDiscord };
+              kActYes, kActNo, kActCopy, kActMinimize, kActClose, kActPluginsDir, kActPluginsOn, kActDiscord,
+              kActFlightProfile,kActSessionReport,kActServerStart,kActServerStop };
 
 enum Icon { kIcoPlay, kIcoInstall, kIcoStatus, kIcoUpdate, kIcoHome, kIcoOutput, kIcoSettings, kIcoFolder,
             kIcoPad, kIcoShield, kIcoBolt, kIcoCheck, kIcoMark, kIcoServer, kIcoUsers, kIcoMods, kIcoSearch };
 
 // The home page's list: each row runs `sc-offline.exe <cmd>` as a hidden child (see RunCommand).
 struct GuiCommand { const char* label; const wchar_t* cmd; Action act; Icon icon; };
-static const GuiCommand kGuiCommands[] = {
-    { "Play", L"play", kActPlay, kIcoPlay },
-    { "Status", L"status", kActStatus, kIcoStatus },
-    { "Update", L"update", kActUpdate, kIcoUpdate },
-    { "Install", L"install", kActInstall, kIcoInstall },
-    { "Uninstall", L"uninstall", kActUninstall, kIcoShield },
+static GuiCommand kGuiCommands[] = {
+    { LocalI18n::T("launcher.play.436e61016e"), L"play", kActPlay, kIcoPlay },
+    { LocalI18n::T("launcher.status.920e413c7d"), L"status", kActStatus, kIcoStatus },
+    { LocalI18n::T("launcher.update.c1c1009d3f"), L"update", kActUpdate, kIcoUpdate },
+    { LocalI18n::T("launcher.install.569ca49f4a"), L"install", kActInstall, kIcoInstall },
+    { LocalI18n::T("launcher.uninstall.fe19952885"), L"uninstall", kActUninstall, kIcoShield },
 };
 static const int kGuiCommandCount = int(ARRAYSIZE(kGuiCommands));
 
@@ -2505,7 +2535,7 @@ static const ImU32 kUiGreen       = IM_COL32(46, 196, 118, 255);
 static const ImU32 kUiRed         = IM_COL32(70, 70, 76, 255);
 static const ImU32 kUiWarn        = IM_COL32(255, 132, 104, 255);
 
-static const float kUiW = 720, kUiH = 328, kUiSideW = 72, kUiTop = 46, kUiPad = 18, kUiGap = 14;
+static const float kUiW = 720, kUiH = 430, kUiSideW = 72, kUiTop = 46, kUiPad = 18, kUiGap = 14;
 static const double kIntroSpin = 0.9, kIntroGrow = 0.42, kIntroFade = 0.3;
 
 // One `[settings]` line of a plugin.ini (sco-core sdk/docs/plugin-ini.md).
@@ -2569,6 +2599,8 @@ struct Gui {
     double noteAt = 0;
 };
 static Gui g_gui;
+static void AppendOutput(const std::wstring& w);
+#include "exploration_launcher.h"
 
 static double Seconds() {
     static LARGE_INTEGER f{};
@@ -2593,29 +2625,29 @@ static void RefreshLight() {
     if (!bin.empty()) {
         const GamePaths p(bin);
         const DllInfo d = Identify(p.dll);
-        if (IsFile(p.marker) || (d.present && d.ours)) left.push_back("the mod is still in Bin64");
+        if (IsFile(p.marker) || (d.present && d.ours)) left.push_back(LocalI18n::T("launcher.the_mod_is_still_in_bin64.296f34ee27"));
     }
     const std::string pc = PcChangesLeft();
     if (!pc.empty()) {
-        for (const FwRule& r : kFwRules) if (Field(pc, r.key) == "added") left.push_back("firewall rule \"" + Narrow(r.name) + "\"");
-        if (Field(pc, "hosts") == "added") left.push_back("the EAC line in the hosts file");
-        if (Field(pc, "eac") == "renamed") left.push_back("EasyAntiCheat_EOS.exe renamed to .bak");
+        for (const FwRule& r : kFwRules) if (Field(pc, r.key) == "added") left.push_back(LocalI18n::T("launcher.firewall_rule.f11066948b") + Narrow(r.name) + "\"");
+        if (Field(pc, "hosts") == "added") left.push_back(LocalI18n::T("launcher.the_eac_line_in_the_hosts_file.26253581e4"));
+        if (Field(pc, "eac") == "renamed") left.push_back(LocalI18n::T("launcher.easyanticheat_eos_exe_renamed_to_bak.f5497dcb17"));
     }
     g.hasLeftovers = !left.empty();
     g.gameUp = GameRunning();
     if (g.gameUp) {
-        g.lightTitle = "Not safe to go online";
-        g.lightDetail = "Star Citizen is running. When it closes, sc-offline takes the mod out and undoes its PC changes.";
+        g.lightTitle = LocalI18n::T("launcher.not_safe_to_go_online.bb0ce86c9c");
+        g.lightDetail = LocalI18n::T("launcher.star_citizen_is_running_when_it_closes_sc_off.a6cecc2217");
     } else if (!left.empty()) {
-        g.lightTitle = "Not safe to go online yet";
-        g.lightDetail = "Click Uninstall to undo: ";
+        g.lightTitle = LocalI18n::T("launcher.not_safe_to_go_online_yet.22d9a6e4ed");
+        g.lightDetail = LocalI18n::T("launcher.click_uninstall_to_undo.ec1a3d31ea");
         for (size_t i = 0; i < left.size(); ++i) g.lightDetail += (i ? "; " : "") + left[i];
     } else if (bin.empty()) {
-        g.lightTitle = "Game folder not known yet";
-        g.lightDetail = "Click Status or Play to find it. No PC changes are left over.";
+        g.lightTitle = LocalI18n::T("launcher.game_folder_not_known_yet.2194cfac95");
+        g.lightDetail = LocalI18n::T("launcher.click_status_or_play_to_find_it_no_pc_changes.25e8bc6dd0");
     } else {
-        g.lightTitle = "Safe to go online";
-        g.lightDetail = "The mod is out of the game folder and no PC changes are left.";
+        g.lightTitle = LocalI18n::T("launcher.safe_to_go_online.e4fae6fe7f");
+        g.lightDetail = LocalI18n::T("launcher.the_mod_is_out_of_the_game_folder_and_no_pc_c.5810d652a3");
     }
 }
 
@@ -2696,7 +2728,7 @@ static void RunCommand(const wchar_t* cmd) {
     const BOOL ok = CreateProcessW(self, line.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, g.here.c_str(), &si, &pi);
     SetEnvironmentVariableW(L"SC_OFFLINE_GUI", nullptr);
     CloseHandle(outW); CloseHandle(inR);
-    if (!ok) { CloseHandle(outR); CloseHandle(inW); AppendOutput(L"[!] couldn't start sc-offline.exe " + wstring(cmd) + L"\n"); return; }
+    if (!ok) { CloseHandle(outR); CloseHandle(inW); AppendOutput(LocalI18n::W("launcher.couldn_t_start_sc_offline_exe.2f04fd4477") + wstring(cmd) + L"\n"); return; }
     CloseHandle(pi.hThread);
     g.child = pi.hProcess; g.childIn = inW; g.running = cmd;
     ClearOutput();
@@ -2884,9 +2916,10 @@ enum Look { kAction, kPlain, kQuiet };
 
 static bool UiButton(const char* label, ImVec2 pos, ImVec2 size, Look look, bool enabled = true, int icon = -1) {
     ImGui::SetCursorScreenPos(pos);
-    const ImGuiID id = ImGui::GetID(label);
+    const char* stable=LocalI18n::catalog.Stable(label);
+    const ImGuiID id = ImGui::GetID(stable);
     ImGui::BeginDisabled(!enabled);
-    const bool clicked = ImGui::InvisibleButton(label, size);
+    const bool clicked = ImGui::InvisibleButton(stable, size);
     const bool hot = ImGui::IsItemHovered(), down = ImGui::IsItemActive();
     ImGui::EndDisabled();
     const float h = Anim(id, hot ? 1.0f : 0.0f), d = Anim(id + 1, down ? 1.0f : 0.0f, 24.0f);
@@ -2913,8 +2946,8 @@ static bool UiButton(const char* label, ImVec2 pos, ImVec2 size, Look look, bool
 
 static bool UiRow(const GuiCommand& c, ImVec2 pos, ImVec2 size, bool picked, bool enabled) {
     ImGui::SetCursorScreenPos(pos);
-    const ImGuiID id = ImGui::GetID(c.label);
-    const bool clicked = ImGui::InvisibleButton(c.label, size);
+    const ImGuiID id = ImGui::GetID(LocalI18n::catalog.Stable(c.label));
+    const bool clicked = ImGui::InvisibleButton(LocalI18n::catalog.Stable(c.label), size);
     const float h = Anim(id, ImGui::IsItemHovered() ? 1.0f : 0.0f), on = Anim(id + 1, picked ? 1.0f : 0.0f);
     const float a = enabled ? 1.0f : 0.45f;
     DrawIcon(c.icon, ImVec2(pos.x + Px(22), pos.y + size.y * 0.5f), Px(7), Col(Fade(Mix(Mix(kUiTextFaint, kUiTextDim, h), kUiAccent, on), a)));
@@ -2938,8 +2971,8 @@ static float DrawQuestion(ImVec2 at, float width) {
         at.y += ImGui::GetFontSize() + Px(10);
     }
     const float bw = (width - Px(10)) * 0.5f, bh = Px(42);
-    if (UiButton("Yes", at, ImVec2(bw, bh), kAction, true, kIcoCheck)) g.action = kActYes;
-    if (UiButton("No", ImVec2(at.x + bw + Px(10), at.y), ImVec2(bw, bh), kPlain)) g.action = kActNo;
+    if (UiButton(LocalI18n::T("launcher.yes.85a39ab345"), at, ImVec2(bw, bh), kAction, true, kIcoCheck)) g.action = kActYes;
+    if (UiButton(LocalI18n::T("launcher.none.dc937b5989"), ImVec2(at.x + bw + Px(10), at.y), ImVec2(bw, bh), kPlain)) g.action = kActNo;
     return at.y + bh;
 }
 
@@ -2999,13 +3032,15 @@ static void DrawControls(float W) {
     const float s = Px(28), y = Px(9);
     const float sx = W - Px(10) - 4 * s - Px(8), tw = Px(100), tx = sx - Px(8) - tw;
     g.controlsX = tx - Px(4);
+    Label(ImVec2(Px(kUiSideW) + Px(18), (Px(kUiTop) - ImGui::GetFontSize()) * 0.5f),
+          kUiTextBody, (std::string("sc-offline v")+SCO_VERSION+" / Local 4 ["+LocalI18n::activeUI+"]").c_str());
     {   // Discord status toggle: the Discord plugin's `disabled` marker; the next Play uses it.
         const ImVec2 lo(tx, y);
         ImGui::SetCursorScreenPos(lo);
         if (ImGui::InvisibleButton("##discord", ImVec2(tw, s))) g.action = kActDiscord;
         const ImGuiID id = ImGui::GetID("##discord");
         const float h = Anim(id, ImGui::IsItemHovered() ? 1.0f : 0.0f), on = Anim(id + 1, g.discord ? 1.0f : 0.0f);
-        Tip("Show \"Playing sc-offline\" on your Discord profile from the next Play");
+        Tip(LocalI18n::T("launcher.show_playing_sc_offline_on_your_discord_profi.2f85fbaf9e"));
         Label(ImVec2(lo.x, y + (s - ImGui::GetFontSize()) * 0.5f), Mix(kUiTextDim, kUiText, (std::max)(h, on)), "Discord");
         DrawSwitch(ImVec2(lo.x + tw - Px(34), y + (s - Px(18)) * 0.5f), on);
     }
@@ -3015,7 +3050,7 @@ static void DrawControls(float W) {
         ImGui::SetCursorScreenPos(p);
         if (ImGui::InvisibleButton(id, ImVec2(s, s))) g.action = i ? kActLogs : kActSettings;
         const float h = Anim(ImGui::GetID(id), ImGui::IsItemHovered() ? 1.0f : 0.0f);
-        Tip(i ? "Logs folder" : "Settings");
+        Tip(i ? LocalI18n::T("launcher.logs_folder.9b1120c286") : LocalI18n::T("launcher.settings.74a883a037"));
         dl->AddRectFilled(p, p + ImVec2(s, s), Col(kUiRow, h), Px(6));
         DrawIcon(i ? kIcoFolder : kIcoSettings, p + ImVec2(s, s) * 0.5f, Px(6), Col(Mix(kUiTextDim, kUiText, h)));
     }
@@ -3044,8 +3079,7 @@ static void DrawHome(float x0, float y0, float x1) {
     const float gap = Px(kUiGap), lw = std::floor((x1 - x0 - gap) * 0.52f), rx = x0 + lw + gap;
     const float bannerH = Px(64), sBot = y0 + Px(44) + Px(14) + bannerH + Px(14);
     const float aTop = sBot + gap, aBot = aTop + Px(44) + Px(14) + Px(42) + Px(14);
-
-    const float y = UiCard(ImVec2(x0, y0), ImVec2(x0 + lw, aBot), kIcoPad, "Launcher") + Px(10);
+    const float y = UiCard(ImVec2(x0, y0), ImVec2(x0 + lw, aBot), kIcoPad, LocalI18n::T("launcher.launcher.22614ace1a")) + Px(10);
     const float rh = Px(36), step = Px(40), rowX = x0 + Px(12), rowW = lw - Px(24);
     const float hy = Anim(ImGui::GetID("##pick"), y + float(g.sel) * step, 20.0f);
     dl->AddRectFilled(ImVec2(rowX, hy), ImVec2(rowX + rowW, hy + rh), Col(kUiRow), Px(8));
@@ -3056,7 +3090,7 @@ static void DrawHome(float x0, float y0, float x1) {
         if (on && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) g.action = c.act;
     }
 
-    const float by = UiCard(ImVec2(rx, y0), ImVec2(x1, sBot), kIcoShield, "Status") + Px(14);
+    const float by = UiCard(ImVec2(rx, y0), ImVec2(x1, sBot), kIcoShield, LocalI18n::T("launcher.status.920e413c7d")) + Px(14);
     {
         const ImVec2 lo(rx + Px(14), by), hi(x1 - Px(14), by + bannerH);
         const int v0 = dl->VtxBuffer.Size;
@@ -3071,15 +3105,15 @@ static void DrawHome(float x0, float y0, float x1) {
     }
 
     const float bw = x1 - rx - Px(28);
-    std::string title = "Actions";
+    std::string title = LocalI18n::T("launcher.actions.ff8059dc67");
     if (!g.question.empty()) { UseFont f(g.bold); title = Fit(g.question, bw - Px(28), false); }
     const float ay = UiCard(ImVec2(rx, aTop), ImVec2(x1, aBot), kIcoBolt, title.c_str()) + Px(14);
     if (!g.question.empty()) {
         const float hw = (bw - Px(10)) * 0.5f;
-        if (UiButton("Yes", ImVec2(rx + Px(14), ay), ImVec2(hw, Px(42)), kAction, true, kIcoCheck)) g.action = kActYes;
-        if (UiButton("No", ImVec2(rx + Px(14) + hw + Px(10), ay), ImVec2(hw, Px(42)), kPlain)) g.action = kActNo;
+        if (UiButton(LocalI18n::T("launcher.yes.85a39ab345"), ImVec2(rx + Px(14), ay), ImVec2(hw, Px(42)), kAction, true, kIcoCheck)) g.action = kActYes;
+        if (UiButton(LocalI18n::T("launcher.none.dc937b5989"), ImVec2(rx + Px(14) + hw + Px(10), ay), ImVec2(hw, Px(42)), kPlain)) g.action = kActNo;
     } else if (!g.running.empty()) {
-        const std::string label = "Running " + Narrow(g.running) + "##act";
+        const std::string label = LocalI18n::T("launcher.running.87de7163ff") + Narrow(g.running) + "##act";
         UiButton(label.c_str(), ImVec2(rx + Px(14), ay), ImVec2(bw, Px(42)), kAction, false);
         UiSpinner(ImVec2(rx + Px(34), ay + Px(21)), Px(7), Px(2.0f), kUiActionText);
     } else {
@@ -3087,6 +3121,12 @@ static void DrawHome(float x0, float y0, float x1) {
         const std::string label = std::string(c.label) + "##act";
         if (UiButton(label.c_str(), ImVec2(rx + Px(14), ay), ImVec2(bw, Px(42)), kAction, CommandEnabled(c.act), c.icon)) g.action = c.act;
     }
+    if (UiButton(LocalI18n::T("launcher.free_flight_profile.bf4ec49956"), ImVec2(x0,aBot+Px(12)), ImVec2(lw,Px(36)),
+                 kPlain,g.running.empty() && !g.gameUp)) g.action=kActFlightProfile;
+    if (UiButton(LocalI18n::T("launcher.launch_report.a42d0b6e41"), ImVec2(rx,aBot+Px(12)), ImVec2(x1-rx,Px(36)),kPlain)) g.action=kActSessionReport;
+    if (UiButton(LocalI18n::T("launcher.start_server.7b7da6f8ab"), ImVec2(x0,aBot+Px(56)), ImVec2(lw,Px(36)),kPlain)) g.action=kActServerStart;
+    if (UiButton(LocalI18n::T("launcher.stop_server.a21bf60530"), ImVec2(rx,aBot+Px(56)), ImVec2(x1-rx,Px(36)),kPlain)) g.action=kActServerStop;
+
 }
 
 static void Tip(const char* text) {
@@ -3095,7 +3135,7 @@ static void Tip(const char* text) {
     ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, Px(6));
     ImGui::PushStyleColor(ImGuiCol_PopupBg, kUiCard);
     ImGui::PushStyleColor(ImGuiCol_Border, kUiLine);
-    ImGui::SetTooltip("%s", text);
+    ImGui::SetTooltip(LocalI18n::T("launcher.s.f684c73cba"), text);
     ImGui::PopStyleColor(2);
     ImGui::PopStyleVar(2);
 }
@@ -3217,7 +3257,7 @@ static std::string ZeroText(const PluginSetting& s) {
 // the host would store. On failure `why` says what is wrong.
 static bool CanonSetting(const PluginSetting& s, const std::string& text, std::string& out, std::string& why) {
     if (s.type == "bool") {
-        if (text != "true" && text != "false") { why = "true or false"; return false; }
+        if (text != "true" && text != "false") { why = LocalI18n::T("launcher.true_or_false.ed50d4017a"); return false; }
         out = text;
         return true;
     }
@@ -3225,47 +3265,47 @@ static bool CanonSetting(const PluginSetting& s, const std::string& text, std::s
         size_t i = 0;
         bool neg = false;
         if (i < text.size() && (text[i] == '+' || text[i] == '-')) { neg = text[i] == '-'; ++i; }
-        if (i == text.size() || text.size() - i > 18) { why = "a whole number"; return false; }
+        if (i == text.size() || text.size() - i > 18) { why = LocalI18n::T("launcher.a_whole_number.ef06b86bbf"); return false; }
         long long v = 0;
         for (; i < text.size(); ++i) {
-            if (text[i] < '0' || text[i] > '9') { why = "a whole number"; return false; }
+            if (text[i] < '0' || text[i] > '9') { why = LocalI18n::T("launcher.a_whole_number.ef06b86bbf"); return false; }
             v = v * 10 + (text[i] - '0');
         }
         if (neg) v = -v;
-        if (s.hasMin && v < s.minI) { why = "at least " + std::to_string(s.minI); return false; }
-        if (s.hasMax && v > s.maxI) { why = "at most " + std::to_string(s.maxI); return false; }
+        if (s.hasMin && v < s.minI) { why = LocalI18n::T("launcher.at_least.547e5396b7") + std::to_string(s.minI); return false; }
+        if (s.hasMax && v > s.maxI) { why = LocalI18n::T("launcher.at_most.73c8425f2c") + std::to_string(s.maxI); return false; }
         out = std::to_string(v);
         return true;
     }
     if (s.type == "float") {
-        if (text.size() > 64 || !PlainDecimal(text)) { why = "a number such as 1.5"; return false; }
+        if (text.size() > 64 || !PlainDecimal(text)) { why = LocalI18n::T("launcher.a_number_such_as_1_5.1dfdc7701d"); return false; }
         const double v = std::strtod(text.c_str(), nullptr);
-        if (!std::isfinite(v)) { why = "not a finite number"; return false; }
-        if (s.hasMin && v < s.minF) { why = "at least " + FloatText(s.minF); return false; }
-        if (s.hasMax && v > s.maxF) { why = "at most " + FloatText(s.maxF); return false; }
+        if (!std::isfinite(v)) { why = LocalI18n::T("launcher.not_a_finite_number.56325710ec"); return false; }
+        if (s.hasMin && v < s.minF) { why = LocalI18n::T("launcher.at_least.547e5396b7") + FloatText(s.minF); return false; }
+        if (s.hasMax && v > s.maxF) { why = LocalI18n::T("launcher.at_most.73c8425f2c") + FloatText(s.maxF); return false; }
         out = FloatText(v);
         return true;
     }
     if (s.type == "string") {
-        if (text.size() > 255) { why = "at most 255 characters"; return false; }
-        for (const char c : text) if (c < 0x20 || c > 0x7e) { why = "printable ASCII only"; return false; }
+        if (text.size() > 255) { why = LocalI18n::T("launcher.at_most_255_characters.2973a7027a"); return false; }
+        for (const char c : text) if (c < 0x20 || c > 0x7e) { why = LocalI18n::T("launcher.printable_ascii_only.4d14e9276e"); return false; }
         out = text;
         return true;
     }
     for (const std::string& c : s.choices) if (c == text) { out = text; return true; }
-    why = "pick one of the choices";
+    why = LocalI18n::T("launcher.pick_one_of_the_choices.92010516cf");
     return false;
 }
 
 static std::string SettingHint(const PluginSetting& s) {
     std::string h = s.type;
     if (s.type == "enum") {
-        h = "one of ";
+        h = LocalI18n::T("launcher.one_of.8e88abb0cb");
         for (size_t i = 0; i < s.choices.size(); ++i) h += (i ? ", " : "") + s.choices[i];
     } else if (s.hasMin || s.hasMax) {
         const bool f = s.type == "float";
-        if (s.hasMin) h += ", min " + (f ? FloatText(s.minF) : std::to_string(s.minI));
-        if (s.hasMax) h += ", max " + (f ? FloatText(s.maxF) : std::to_string(s.maxI));
+        if (s.hasMin) h += LocalI18n::T("launcher.min.0af7aaf428") + (f ? FloatText(s.minF) : std::to_string(s.minI));
+        if (s.hasMax) h += LocalI18n::T("launcher.max.d7a4b72dd1") + (f ? FloatText(s.maxF) : std::to_string(s.maxI));
     }
     return h;
 }
@@ -3435,7 +3475,7 @@ static bool SavePluginSettings(const wstring& here, const PluginEntry& p, bool r
     CreateDirectoryW((here + L"\\data").c_str(), nullptr);
     CreateDirectoryW((here + L"\\data\\storage").c_str(), nullptr);
     sqlite3* db = OpenPluginDb(PluginDbPath(here, p.folder), SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
-    if (!db) { err = "couldn't open data\\storage\\" + p.id + ".db"; return false; }
+    if (!db) { err = LocalI18n::T("launcher.couldn_t_open_data_storage.a89802a187") + p.id + ".db"; return false; }
     bool ok = sqlite3_exec(db, "BEGIN IMMEDIATE", nullptr, nullptr, nullptr) == SQLITE_OK &&
               sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS sco_kv(key TEXT PRIMARY KEY NOT NULL, value BLOB NOT NULL) WITHOUT ROWID",
                            nullptr, nullptr, nullptr) == SQLITE_OK;
@@ -3451,7 +3491,7 @@ static bool SavePluginSettings(const wstring& here, const PluginEntry& p, bool r
     }
     if (ok) ok = sqlite3_exec(db, "COMMIT", nullptr, nullptr, nullptr) == SQLITE_OK;
     if (!ok) {
-        err = std::string("couldn't write the values: ") + sqlite3_errmsg(db);
+        err = std::string(LocalI18n::T("launcher.couldn_t_write_the_values.dae2326f35")) + sqlite3_errmsg(db);
         sqlite3_exec(db, "ROLLBACK", nullptr, nullptr, nullptr);
     }
     sqlite3_close(db);
@@ -3464,10 +3504,10 @@ static bool NoteLive() { return !g_gui.note.empty() && Seconds() - g_gui.noteAt 
 static void DrawPluginList(float x0, float y0, float x1, float y1) {
     Gui& g = g_gui;
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    UiCard(ImVec2(x0, y0), ImVec2(x1, y1), kIcoMods, "Plugins");
+    UiCard(ImVec2(x0, y0), ImVec2(x1, y1), kIcoMods, LocalI18n::T("launcher.plugins.9514b7ff48"));
     {
         float tw;
-        { UseFont f(g.bold); tw = ImGui::CalcTextSize("Plugins").x; }
+        { UseFont f(g.bold); tw = ImGui::CalcTextSize(LocalI18n::T("launcher.plugins.9514b7ff48")).x; }
         int on = 0;
         for (const PluginEntry& p : g.plugins) on += !p.disabled;
         const std::string count = std::to_string(on) + " / " + std::to_string(g.plugins.size());
@@ -3481,7 +3521,7 @@ static void DrawPluginList(float x0, float y0, float x1, float y1) {
         ImGui::SetCursorScreenPos(at);
         if (ImGui::InvisibleButton("##plugdir", ImVec2(fb, fb))) g.action = kActPluginsDir;
         const float h = Anim(ImGui::GetID("##plugdir"), ImGui::IsItemHovered() ? 1.0f : 0.0f);
-        Tip("Open the plugins folder");
+        Tip(LocalI18n::T("launcher.open_the_plugins_folder.77e53cfa6d"));
         dl->AddRectFilled(at, at + ImVec2(fb, fb), Col(kUiRow, h), Px(6));
         DrawIcon(kIcoFolder, at + ImVec2(fb, fb) * 0.5f, Px(6), Col(Mix(kUiTextDim, kUiText, h)));
         headerRight = at.x - Px(8);
@@ -3489,9 +3529,9 @@ static void DrawPluginList(float x0, float y0, float x1, float y1) {
     {
         // Hot reload runs in the game (the sco.reload command); the launcher has no way to call it.
         const float rw = Px(76);
-        if (UiButton("Reload##plug", ImVec2(headerRight - rw, sy), ImVec2(rw, fb), kPlain))
-            PluginNote("Hot reload runs in the game: use the sco.reload command there. The launcher can't call it.");
-        Tip("Plugins reload inside the running game (sco.reload)");
+        if (UiButton(LocalI18n::T("launcher.reload_plug.0b13c56a99"), ImVec2(headerRight - rw, sy), ImVec2(rw, fb), kPlain))
+            PluginNote(LocalI18n::T("launcher.hot_reload_runs_in_the_game_use_the_sco_reloa.08137542b0"));
+        Tip(LocalI18n::T("launcher.plugins_reload_inside_the_running_game_sco_re.c43dd44e3c"));
         headerRight -= rw + Px(8);
     }
     const float sw = Px(150);
@@ -3503,7 +3543,7 @@ static void DrawPluginList(float x0, float y0, float x1, float y1) {
     ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, kUiRowHover);
     ImGui::PushStyleColor(ImGuiCol_FrameBgActive, kUiRowHover);
     ImGui::SetNextItemWidth(sw);
-    if (ImGui::InputTextWithHint("##plugsearch", "Search", g.plugSearch, sizeof(g.plugSearch))) g.plugScroll = 0;
+    if (ImGui::InputTextWithHint("##plugsearch", LocalI18n::T("launcher.search.49c266baaa"), g.plugSearch, sizeof(g.plugSearch))) g.plugScroll = 0;
     const bool typing = ImGui::IsItemActive();
     ImGui::PopStyleColor(3);
     ImGui::PopStyleVar(2);
@@ -3528,8 +3568,8 @@ static void DrawPluginList(float x0, float y0, float x1, float y1) {
         const float bh = Px(40);
         dl->AddRectFilled(ImVec2(left, top), ImVec2(right, top + bh), Col(kUiRow), Px(8));
         Label(ImVec2(left + Px(14), top + (bh - ImGui::GetFontSize()) * 0.5f), kUiWarn,
-              Fit("Plugins are off (plugins = off in sc-offline.ini)", right - left - Px(130), false).c_str());
-        if (UiButton("Turn on##plugson", ImVec2(right - Px(104), top + Px(5)), ImVec2(Px(96), bh - Px(10)), kAction)) g.action = kActPluginsOn;
+              Fit(LocalI18n::T("launcher.plugins_are_off_plugins_off_in_sc_offline_ini.c90fbf0304"), right - left - Px(130), false).c_str());
+        if (UiButton(LocalI18n::T("launcher.turn_on_plugson.fadd490462"), ImVec2(right - Px(104), top + Px(5)), ImVec2(Px(96), bh - Px(10)), kAction)) g.action = kActPluginsOn;
         top += bh + Px(8);
     }
 
@@ -3537,13 +3577,13 @@ static void DrawPluginList(float x0, float y0, float x1, float y1) {
     for (int i = 0; i < int(g.plugins.size()); ++i) if (has(g.plugins[i].name + " " + g.plugins[i].id + " " + g.plugins[i].author)) shown.push_back(i);
     if (shown.empty()) {
         const float cy = (top + bottom) * 0.5f;
-        const char* text = g.plugins.empty() ? "No plugins yet" : "No matches";
+        const char* text = g.plugins.empty() ? LocalI18n::T("launcher.no_plugins_yet.f08abb9c56") : LocalI18n::T("launcher.no_matches.2df01a03ff");
         const ImVec2 ts = ImGui::CalcTextSize(text);
         DrawIcon(g.plugins.empty() ? kIcoMods : kIcoSearch, ImVec2((x0 + x1) * 0.5f, cy - Px(30)), Px(11), Col(kUiTextFaint));
         Label(ImVec2((x0 + x1) * 0.5f - ts.x * 0.5f, cy - ts.y * 0.5f), kUiTextDim, text);
         if (g.plugins.empty()) {
             const float bw = Px(150), bh = Px(34);
-            if (UiButton("Open folder##plugempty", ImVec2((x0 + x1) * 0.5f - bw * 0.5f, cy + Px(16)), ImVec2(bw, bh), kPlain, true, kIcoFolder))
+            if (UiButton(LocalI18n::T("launcher.open_folder_plugempty.71bb76655f"), ImVec2((x0 + x1) * 0.5f - bw * 0.5f, cy + Px(16)), ImVec2(bw, bh), kPlain, true, kIcoFolder))
                 g.action = kActPluginsDir;
         }
         return;
@@ -3563,15 +3603,15 @@ static void DrawPluginList(float x0, float y0, float x1, float y1) {
         if (ImGui::InvisibleButton("##plug", size)) {
             if (SetPluginDisabled(g.here, p.folder, !p.disabled)) {
                 p.disabled = !p.disabled;
-                PluginNote(std::string(p.disabled ? "Off" : "On") + ": " + p.name + ". The game picks this up at its next start.");
+                PluginNote(std::string(p.disabled ? "Off" : "On") + ": " + p.name + LocalI18n::T("launcher.the_game_picks_this_up_at_its_next_start.ba53fc3f83"));
             } else {
-                PluginNote("Couldn't change data\\plugins\\" + p.id + "\\disabled (is the folder read-only?)");
+                PluginNote(LocalI18n::T("launcher.couldn_t_change_data_plugins.567be3c257") + p.id + LocalI18n::T("launcher.disabled_is_the_folder_read_only.b838d0c3c4"));
             }
         }
         const ImGuiID id = ImGui::GetID("##plug");
         const float h = Anim(id, ImGui::IsItemHovered() ? 1.0f : 0.0f), on = Anim(id + 1, p.disabled ? 0.0f : 1.0f);
         std::string tip = p.about;
-        if (!p.kind.empty()) tip += (tip.empty() ? "" : "\n") + p.kind + " plugin";
+        if (!p.kind.empty()) tip += (tip.empty() ? "" : "\n") + p.kind + LocalI18n::T("launcher.plugin.6d6b09dfa8");
         if (!tip.empty()) Tip(tip.c_str());
         dl->AddRectFilled(pos, pos + size, Col(Mix(kUiRow, kUiRowHover, h)), Px(8));
         const float ty = ry + (rowH - ImGui::GetFontSize()) * 0.5f;
@@ -3593,7 +3633,7 @@ static void DrawPluginList(float x0, float y0, float x1, float y1) {
             ImGui::SetCursorScreenPos(ImVec2(gearX, ry + (rowH - Px(28)) * 0.5f));
             const bool open = ImGui::InvisibleButton("##gear", ImVec2(Px(28), Px(28)));
             const float gh = Anim(ImGui::GetID("##gear"), ImGui::IsItemHovered() ? 1.0f : 0.0f);
-            Tip("Settings");
+            Tip(LocalI18n::T("launcher.settings.74a883a037"));
             DrawIcon(kIcoSettings, ImVec2(gearX + Px(14), ry + rowH * 0.5f), Px(6), Col(Mix(kUiTextDim, kUiText, gh)));
             if (open) { g.plugOpen = p.id; g.plugScroll = 0; }
         }
@@ -3605,17 +3645,17 @@ static void DrawPluginList(float x0, float y0, float x1, float y1) {
 static void DrawPluginSettings(float x0, float y0, float x1, float y1, PluginEntry& p) {
     Gui& g = g_gui;
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    const std::string title = Fit(p.name + " settings", (x1 - x0) - Px(120), false);
+    const std::string title = Fit(p.name + LocalI18n::T("launcher.settings.8ab5fcaa02"), (x1 - x0) - Px(120), false);
     UiCard(ImVec2(x0, y0), ImVec2(x1, y1), kIcoSettings, title.c_str());
-    if (UiButton("Back##plugback", ImVec2(x1 - Px(12) - Px(64), y0 + Px(9)), ImVec2(Px(64), Px(26)), kQuiet)) {
+    if (UiButton(LocalI18n::T("launcher.back_plugback.c2c2690bbf"), ImVec2(x1 - Px(12) - Px(64), y0 + Px(9)), ImVec2(Px(64), Px(26)), kQuiet)) {
         g.plugOpen.clear(); g.plugScroll = 0; g.pluginsAt = 0;
         return;
     }
     const float left = x0 + Px(12), right = x1 - Px(30), top = y0 + Px(44) + Px(10);
     if (p.settingsBad || p.settings.empty()) {
         dl->AddText(ImGui::GetFont(), ImGui::GetFontSize(), ImVec2(left + Px(2), top + Px(4)), Col(kUiWarn),
-                    "plugin.ini has a [settings] line this launcher can't read; the game may refuse the plugin. "
-                    "Run sco-plugin-check on the folder.", nullptr, right - left);
+                    (std::string(LocalI18n::T("launcher.plugin_ini_has_a_settings_line_this_launcher_.57bb18d606"))+
+                    LocalI18n::T("launcher.run_sco_plugin_check_on_the_folder.30c0386bde")).c_str(), nullptr, right - left);
         return;
     }
     // Edits are written while the game is closed: it reads the values once, at start.
@@ -3681,20 +3721,20 @@ static void DrawPluginSettings(float x0, float y0, float x1, float y1, PluginEnt
     ImGui::PopClipRect();
 
     std::string err;
-    if (UiButton("Save##plugsave", ImVec2(left, footY), ImVec2(bw, bh), kAction, canEdit && dirty, kIcoCheck)) {
-        if (SavePluginSettings(g.here, p, false, err)) PluginNote("Saved. Applies at the next game start.");
+    if (UiButton(LocalI18n::T("launcher.save_plugsave.fa00174dc1"), ImVec2(left, footY), ImVec2(bw, bh), kAction, canEdit && dirty, kIcoCheck)) {
+        if (SavePluginSettings(g.here, p, false, err)) PluginNote(LocalI18n::T("launcher.saved_applies_at_the_next_game_start.264224fa19"));
         else PluginNote(err);
         g.plugins = ReadPlugins(g.here);   // p is gone after this; the edits come back from what was saved
         return;
     }
-    if (UiButton("Reset##plugreset", ImVec2(left + bw + Px(8), footY), ImVec2(bw, bh), kPlain, canEdit && anyKept)) {
-        if (SavePluginSettings(g.here, p, true, err)) PluginNote("Back to the defaults. Applies at the next game start.");
+    if (UiButton(LocalI18n::T("launcher.reset_plugreset.c4f1bdfb43"), ImVec2(left + bw + Px(8), footY), ImVec2(bw, bh), kPlain, canEdit && anyKept)) {
+        if (SavePluginSettings(g.here, p, true, err)) PluginNote(LocalI18n::T("launcher.back_to_the_defaults_applies_at_the_next_game.2a2a41a0df"));
         else PluginNote(err);
         g.plugins = ReadPlugins(g.here);
         return;
     }
     const float mx = left + 2 * bw + Px(20);
-    const std::string msg = !canEdit ? "Close the game to edit." : NoteLive() ? g.note : "Applies at the next game start.";
+    const std::string msg = !canEdit ? LocalI18n::T("launcher.close_the_game_to_edit.db2e33ffc4") : NoteLive() ? g.note : LocalI18n::T("launcher.applies_at_the_next_game_start.7fa090589b");
     Label(ImVec2(mx, footY + (bh - ImGui::GetFontSize()) * 0.5f), kUiTextDim, Fit(msg, right - mx, false).c_str());
 }
 
@@ -3713,9 +3753,9 @@ static void DrawPlugins(float x0, float y0, float x1, float y1) {
 
 static void DrawOutputPage(float x0, float y0, float x1, float y1) {
     Gui& g = g_gui;
-    float y = UiCard(ImVec2(x0, y0), ImVec2(x1, y1), kIcoOutput, "Output") + Px(12);
+    float y = UiCard(ImVec2(x0, y0), ImVec2(x1, y1), kIcoOutput, LocalI18n::T("launcher.output.b2439bcb8d")) + Px(12);
     const float cw = Px(56);
-    if (UiButton("Copy", ImVec2(x1 - Px(12) - cw, y0 + Px(9)), ImVec2(cw, Px(26)), kQuiet, !g.log.empty())) g.action = kActCopy;
+    if (UiButton(LocalI18n::T("launcher.copy.e21f935f11"), ImVec2(x1 - Px(12) - cw, y0 + Px(9)), ImVec2(cw, Px(26)), kQuiet, !g.log.empty())) g.action = kActCopy;
     if (!g.running.empty()) UiSpinner(ImVec2(x1 - Px(12) - cw - Px(10), y0 + Px(22)), Px(6), Px(1.8f), kUiAccent);
     if (!g.question.empty()) y = DrawQuestion(ImVec2(x0 + Px(14), y), x1 - x0 - Px(28)) + Px(12);
     ImGui::SetCursorScreenPos(ImVec2(x0 + Px(14), y));
@@ -3872,6 +3912,10 @@ static void RunAction() {
     g.action = kActNone;
     for (const GuiCommand& c : kGuiCommands) if (c.act == a && c.cmd) { RunCommand(c.cmd); return; }
     switch (a) {
+    case kActFlightProfile: if(g.running.empty() && !GameRunning()) ShowFlightProfile(g.wnd); break;
+    case kActSessionReport: ShowSessionReport(); break;
+    case kActServerStart: LocalServerControl(g.here,false); break;
+    case kActServerStop: LocalServerControl(g.here,true); break;
     case kActSettings: ShellExecuteW(g.wnd, L"open", L"notepad.exe", (L"\"" + g.here + L"\\sc-offline.ini\"").c_str(), nullptr, SW_SHOWNORMAL); break;
     case kActLogs: {
         const wstring d = g.here + L"\\data"; CreateDirectoryW(d.c_str(), nullptr);
@@ -3888,19 +3932,19 @@ static void RunAction() {
     case kActPluginsOn:
         if (SetIniValue(g.here + L"\\sc-offline.ini", "plugins", "on")) {
             RefreshLight();
-            PluginNote("Plugins are on. They load the next time the game starts.");
+            PluginNote(LocalI18n::T("launcher.plugins_are_on_they_load_the_next_time_the_ga.06a0e8778b"));
         } else {
-            PluginNote("Couldn't write sc-offline.ini; set plugins = on there by hand.");
+            PluginNote(LocalI18n::T("launcher.couldn_t_write_sc_offline_ini_set_plugins_on_.25f2489e07"));
         }
         break;
     case kActDiscord: {   // the Discord plugin's `disabled` marker; the next Play uses it
         const bool on = !g.discord;
         if (SetPluginDisabled(g.here, L"discord", !on)) {
             g.discord = on;
-            AppendOutput(on ? L"\nDiscord status on: your profile shows \"Playing sc-offline\" from the next Play.\n"
-                            : L"\nDiscord status off: from the next Play, nothing is shown on Discord.\n");
+            AppendOutput(on ? LocalI18n::W("launcher.discord_status_on_your_profile_shows_playing_.fd92e8185a")
+                            : LocalI18n::W("launcher.discord_status_off_from_the_next_play_nothing.a2dd54127c"));
         } else {
-            AppendOutput(L"\n[!] couldn't change data\\plugins\\discord\\disabled (is the folder read-only?)\n");
+            AppendOutput(LocalI18n::W("launcher.couldn_t_change_data_plugins_discord_disabled.64fb736af8"));
         }
         break;
     }
@@ -3965,14 +4009,13 @@ static LRESULT CALLBACK GuiProc(HWND wnd, UINT msg, WPARAM wp, LPARAM lp) {
             DestroyWindow(wnd);
             return 0;
         }
-        AppendOutput(code == 0 ? L"\n[done]\n" : L"\n[finished with exit code " + std::to_wstring(code) + L"; see above]\n");
+        AppendOutput(code == 0 ? LocalI18n::W("launcher.done.034894c796") : LocalI18n::W("launcher.finished_with_exit_code.294770a0d1") + std::to_wstring(code) + LocalI18n::W("launcher.see_above.2956c2317e"));
         RefreshLight();
         return 0;
     }
     case WM_CLOSE:
         if (!g.running.empty() &&
-            MessageBoxW(wnd, L"A command is still running. If you close this window, sc-offline still takes the mod out and undoes "
-                             L"its PC changes when the game closes, but any question it asks is answered No.\n\nClose anyway?",
+            MessageBoxW(wnd, LocalI18n::W("launcher.a_command_is_still_running_if_you_close_this_.d05071a780"),
                         L"sc-offline", MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2) != IDYES)
             return 0;
         DestroyWindow(wnd);
@@ -3988,7 +4031,17 @@ static void LoadFonts() {
     const wstring dir = EnvOr(L"WINDIR", L"C:\\Windows") + L"\\Fonts\\";
     auto load = [&](const wchar_t* file) -> ImFont* {
         const wstring p = dir + file;
-        return IsFile(p) ? io.Fonts->AddFontFromFileTTF(Narrow(p).c_str(), 15.0f) : nullptr;
+        ImFont* base=IsFile(p)?io.Fonts->AddFontFromFileTTF(Narrow(p).c_str(),15.0f):nullptr;
+        if(!base)return nullptr;
+        std::string gameCode;
+        for(const auto& l:LocalI18n::selection.available)if(l.slot==LocalI18n::selection.slot)gameCode=l.code;
+        for(auto extra:{std::pair{"zh",L"msyh.ttc"},std::pair{"ja",L"msgothic.ttc"},std::pair{"ko",L"malgun.ttf"}}) {
+            if(LocalI18n::selection.ui!=extra.first&&gameCode!=extra.first)continue;
+            auto fallback=dir+extra.second;if(!IsFile(fallback))continue;
+            ImFontConfig cfg;cfg.MergeMode=true;cfg.DstFont=base;
+            io.Fonts->AddFontFromFileTTF(Narrow(fallback).c_str(),15.0f,&cfg);
+        }
+        return base;
     };
     g.font = load(L"segoeui.ttf");
     g.bold = load(L"seguisb.ttf");
@@ -4059,7 +4112,7 @@ static int RunGui() {
     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW); wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
     wc.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
     RegisterClassW(&wc);
-    const wstring title = L"sc-offline " + Wide(SCO_VERSION) + L" - Star Citizen offline mod";
+    const wstring title = L"sc-offline v" + Wide(SCO_VERSION) + L" / Local 4 (SDK 2.0)" + L" [" + LocalI18n::Wide(LocalI18n::activeUI) + L"]";
     HWND wnd = CreateWindowExW(0, L"sc-offline", title.c_str(), WS_POPUP | WS_THICKFRAME | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
                                g.splash.left, g.splash.top, sw, sh, nullptr, nullptr, wc.hInstance, nullptr);
     if (!wnd) return kExitError;
@@ -4121,25 +4174,42 @@ static int RunGui() {
     return kExitOk;
 }
 
-static const char* kUsage =
-    "usage: sc-offline.exe [command] [--game <folder>] [--dry-run] [--skip-eac-check]\n"
-    "\n"
-    "  play       (default) copy the mod in, start the game, take the mod out when it closes\n"
-    "  install    copy the mod in and leave it there; run `uninstall` before going online\n"
-    "  uninstall  take the mod out and restore anything it replaced\n"
-    "  status     check the setup and report; changes nothing\n"
-    "  update     check GitHub for a newer sc-offline and offer to install it (saves and ini kept)\n"
-    "  help       show this\n"
-    "\n"
-    "  --game <folder>   your StarCitizen, LIVE or Bin64 folder (else sc-offline.ini, else searched)\n"
-    "  --dry-run         print every step, change nothing, start nothing\n"
-    "  --skip-eac-check  don't stop when Easy Anti-Cheat looks active\n"
-    "  --console         double-clicked: run `play` in this console instead of opening the window\n"
-    "  --window          open the window (from a terminal, or under Wine/Proton)\n"
-    "\n"
-    "exit codes: 0 ok, 1 error, 2 Easy Anti-Cheat active, 3 the game is running\n";
+static const char* Usage() { return
+    LocalI18n::T("launcher.usage_sc_offline_exe_command_game_folder_dry_.d86d37d63e");
+
+}
+
+
+static void InitLocalization(int argc,wchar_t** argv) {
+    using namespace LocalI18n;
+    catalog=Catalog{};
+    #include "../local/launcher_catalog.inc"
+    Config cfg; ReadConfig(ExeDir()+L"\\sc-offline.ini",cfg);
+    wstring game=cfg.game;
+    for(int i=1;i+1<argc;++i)if(!_wcsicmp(argv[i],L"--game"))game=argv[i+1];
+    auto bin=game.empty()?wstring{}:ToBin64(game,cfg.channel);
+    if(bin.empty()){std::vector<Found> remembered;FromRemembered(ExeDir(),cfg.channel,remembered);if(!remembered.empty())bin=remembered.front().bin;}
+    wchar_t locale[LOCALE_NAME_MAX_LENGTH]{};GetUserDefaultLocaleName(locale,LOCALE_NAME_MAX_LENGTH);
+    std::string os=Narrow(locale);auto dash=os.find('-');if(dash!=os.npos)os.resize(dash);
+    selection=Discover(bin.empty()?std::filesystem::path{}:std::filesystem::path(bin).parent_path(),Narrow(cfg.language),Narrow(cfg.gameLanguage),os);
+    // English is compiled in. A missing/broken foreign catalog keeps that fallback.
+    translatedKeys=catalog.Load(std::filesystem::path(ExeDir())/"localization/launcher"/(selection.ui+".ini"));
+    activeUI=translatedKeys?selection.ui:"en";
+    catalog.Seal();
+    for(auto& command:kGuiCommands)command.label=catalog.Text(command.label);
+}
 
 int wmain(int argc, wchar_t** argv) {
+    InitLocalization(argc,argv);
+    if(argc==2&&!_wcsicmp(argv[1],L"--localization-info")) {
+        std::printf("UI requested=%s effective=%s keys=%zu game_slot=%s\n",LocalI18n::selection.ui.c_str(),LocalI18n::activeUI.c_str(),LocalI18n::translatedKeys,LocalI18n::selection.slot.c_str());
+        for(const auto& language:LocalI18n::selection.available)std::printf("%s | %s | %s\n",language.slot.c_str(),language.code.c_str(),language.label.c_str());
+        std::printf("sample AEGS_Avenger_Titan: %s\n",Narrow(ProfileShipLabel(L"AEGS_Avenger_Titan")).c_str());
+        return 0;
+    }
+    std::setlocale(LC_CTYPE, ".UTF-8");
+    SetConsoleOutputCP(CP_UTF8);
+    if (argc == 3 && !_wcsicmp(argv[1], L"--self-test-exploration-report")) return SelfTestExplorationReport(argv[2]);
     if (argc == 3 && !_wcsicmp(argv[1], L"--self-test")) return SelfTest(Narrow(argv[2]));
 #ifdef SCO_UPDATE_TEST
     if (argc == 5 && !_wcsicmp(argv[1], L"--apply-zip")) return ApplyZipForTest(argv[2], argv[3], argv[4]);
@@ -4162,23 +4232,23 @@ int wmain(int argc, wchar_t** argv) {
     for (int i = 1; i < argc; ++i) {
         const wchar_t* a = argv[i];
         if (!_wcsicmp(a, L"--game")) {
-            if (i + 1 >= argc) return Fail("--game needs a folder: sc-offline.exe --game \"D:\\Games\\StarCitizen\"");
+            if (i + 1 >= argc) return Fail(LocalI18n::T("launcher.game_needs_a_folder_sc_offline_exe_game_d_gam.25c31fefc7"));
             gameArg = argv[++i];
         } else if (!_wcsicmp(a, L"--dry-run")) dry = true;
         else if (!_wcsicmp(a, L"--console")) {}
         else if (!_wcsicmp(a, L"--skip-eac-check")) skipEac = true;
         else if (!sawCommand && (!_wcsicmp(a, L"play") || !_wcsicmp(a, L"install") || !_wcsicmp(a, L"uninstall") ||
-                                 !_wcsicmp(a, L"status") || !_wcsicmp(a, L"update") || !_wcsicmp(a, L"help"))) {
+                                 !_wcsicmp(a, L"server-start") || !_wcsicmp(a, L"server-stop") || !_wcsicmp(a, L"status") || !_wcsicmp(a, L"update") || !_wcsicmp(a, L"help"))) {
             command = a; sawCommand = true;
         } else if (!_wcsicmp(a, L"--help") || !_wcsicmp(a, L"-h") || !_wcsicmp(a, L"/?")) {
             command = L"help"; sawCommand = true;
         } else {
-            std::printf("%s", kUsage);
-            return Fail("unknown argument '%ls'", a);
+            std::printf("%s", Usage());
+            return Fail(LocalI18n::T("launcher.unknown_argument_ls.a4490f05d6"), a);
         }
     }
     for (wchar_t& c : command) c = towlower(c);
-    if (command == L"help") { std::printf("sc-offline launcher %s (%s)\n\n%s", SCO_VERSION, SCO_BASED_ON, kUsage); return kExitOk; }
+    if (command == L"help") { std::printf(LocalI18n::T("launcher.sc_offline_launcher_s_s_s.e8eb64e741"), SCO_VERSION, SCO_BASED_ON, Usage()); return kExitOk; }
 
     const wstring here = ExeDir();
     const wstring data = here + L"\\data";
@@ -4186,14 +4256,18 @@ int wmain(int argc, wchar_t** argv) {
     std::string header = "sc-offline.exe";
     for (int i = 1; i < argc; ++i) header += " " + Narrow(argv[i]);
     OpenLog(data, false, header.c_str());
-    Out("sc-offline launcher %s%s\n\n", SCO_VERSION, dry ? " - dry run, nothing is changed" : "");
+    Out(LocalI18n::T("launcher.sc_offline_launcher_s_s.5827bc0e4a"), SCO_VERSION, dry ? LocalI18n::T("launcher.dry_run_nothing_is_changed.e4a8d036ce") : "");
+
+    if (command == L"server-start" || command == L"server-stop") {
+        if (dry) { Out(LocalI18n::T("launcher.dry_run_server_management_is_skipped.68f550e850")); return kExitOk; }
+        return LocalServerControl(here,command == L"server-stop") ? kExitOk : kExitError;
+    }
 
     if (!CanWriteTo(data))
-        Out("[!] this folder (%ls) can't be written without administrator rights, so the mod can't save\n"
-            "    your wallet or places. Move the sc-offline folder out of Program Files, e.g. to your Desktop.\n", here.c_str());
+        Out(LocalI18n::T("launcher.this_folder_ls_can_t_be_written_without_admin.034f134785"), here.c_str());
     if (!dry) SettlePreviousUpdate(here);
     Config cfg;
-    if (!ReadConfig(here + L"\\sc-offline.ini", cfg)) Out("[i] no sc-offline.ini next to this exe; using defaults\n");
+    if (!ReadConfig(here + L"\\sc-offline.ini", cfg)) Out(LocalI18n::T("launcher.i_no_sc_offline_ini_next_to_this_exe_using_de.8394aac9a2"));
     // 0.7.5: the Discord status is the discord plugin's. An old `discord_presence = off` turns that
     // plugin off once and the line goes, so the launcher's Discord switch owns it from then on.
     if (cfg.discordOff && !dry && SetPluginDisabled(here, L"discord", true) && DropIniKey(here + L"\\sc-offline.ini", "discord_presence"))
@@ -4205,22 +4279,10 @@ int wmain(int argc, wchar_t** argv) {
         std::string why;
         const UpdateInfo u = CheckLatest(explicitUpdate ? 15000 : 3000, cfg.prereleases, &why);
         if (u.tag.empty()) {
-            if (explicitUpdate) { Out("Update:   %s\n", why.c_str()); return why.rfind("up to date", 0) == 0 ? kExitOk : kExitError; }
+            if (explicitUpdate) { Out("Update:   %s\n", why.c_str()); return why.rfind(LocalI18n::T("launcher.up_to_date.bef6a4bb30"), 0) == 0 ? kExitOk : kExitError; }
         } else {
-            Out("Update:   sc-offline %s is available (you have %s)\n", u.tag.c_str(), SCO_VERSION);
-            if (command == L"status") Out("          run `sc-offline.exe update` to install it\n");
-            else if (dry) Out("[dry-run] would download %s, check its SHA-256 and replace the program files\n", u.zipName.c_str());
-            else if (GameRunning()) Out("[!] close the game before updating\n");
-            else if (!OwnsConsoleInput()) Out("          (not asking: no console to answer in)\n");
-            else if (AskYes("Update now? Your saves and sc-offline.ini are kept.")) {
-                if (ApplyUpdate(here, u)) {
-                    if (GuiChild()) { Out("[i] restarting sc-offline with the new version\n"); return kExitRestart; }
-                    Out("[i] starting the new version\n\n");
-                    if (g_log) { std::fclose(g_log); g_log = nullptr; }
-                    Relaunch(here);
-                }
-                if (explicitUpdate) return Fail("update failed; your current version is unchanged");
-            } else Out("[i] not updating\n");
+            Out(LocalI18n::T("launcher.update_sc_offline_s_is_available_you_have_s.a4ad2432d8"), u.tag.c_str(), SCO_VERSION);
+            Out(LocalI18n::T("launcher.local_changes_must_be_migrated_before_updatin.c242076fdc"));
         }
         if (explicitUpdate) return kExitOk;
         Out("\n");
@@ -4230,35 +4292,32 @@ int wmain(int argc, wchar_t** argv) {
     wstring bin;
     if (!gameArg.empty()) {
         bin = ToBin64(gameArg, cfg.channel);
-        if (bin.empty()) return Fail("no %ls under --game %ls (channel %ls)", kGameExe, gameArg.c_str(), cfg.channel.c_str());
+        if (bin.empty()) return Fail(LocalI18n::T("launcher.no_ls_under_game_ls_channel_ls.bfca94ac5a"), kGameExe, gameArg.c_str(), cfg.channel.c_str());
     } else if (!cfg.game.empty()) {
         bin = ToBin64(cfg.game, cfg.channel);
-        if (bin.empty()) return Fail("no %ls under game = %ls in sc-offline.ini (channel %ls)", kGameExe, cfg.game.c_str(), cfg.channel.c_str());
+        if (bin.empty()) return Fail(LocalI18n::T("launcher.no_ls_under_game_ls_in_sc_offline_ini_channel.dad9e48b4d"), kGameExe, cfg.game.c_str(), cfg.channel.c_str());
     } else {
         const std::vector<Found> found = DetectBin64(here, cfg.channel);
         if (!found.empty()) {
             bin = found.front().bin;
-            Out("[i] found the game %s\n", found.front().how);
+            Out(LocalI18n::T("launcher.i_found_the_game_s.8d66b9b0cf"), found.front().how);
             for (size_t i = 1; i < found.size(); ++i)
-                Out("[i] also found %ls (set game = in sc-offline.ini to use it)\n", found[i].bin.c_str());
+                Out(LocalI18n::T("launcher.i_also_found_ls_set_game_in_sc_offline_ini_to.2494d7e73f"), found[i].bin.c_str());
         } else if (OwnsConsole()) {
-            Out("[i] couldn't find Star Citizen (%ls) by itself. Pick your StarCitizen folder in the window that opens.\n",
+            Out(LocalI18n::T("launcher.i_couldn_t_find_star_citizen_ls_by_itself_pic.ac7ef991b3"),
                 cfg.channel.c_str());
             const wstring picked = PickFolder();
             bin = picked.empty() ? L"" : ToBin64(picked, cfg.channel);
             if (bin.empty())
-                return Fail("no %ls under %ls (channel %ls). Open sc-offline.ini and set\n"
-                            "    game = <your StarCitizen folder>", kGameExe,
+                return Fail(LocalI18n::T("launcher.no_ls_under_ls_channel_ls_open_sc_offline_ini.b8bf19882f"), kGameExe,
                             picked.empty() ? L"(nothing picked)" : picked.c_str(), cfg.channel.c_str());
         } else {
-            return Fail("couldn't find Star Citizen (%ls). Open sc-offline.ini and set\n"
-                        "    game = <your StarCitizen folder>\n"
-                        "or pass --game <folder>", cfg.channel.c_str());
+            return Fail(LocalI18n::T("launcher.couldn_t_find_star_citizen_ls_open_sc_offline.ea53d7610b"), cfg.channel.c_str());
         }
         // Remember it, so the next run skips the search. game = and --game always win over this.
         if (!dry) WriteAll(RememberedPathFile(here), Narrow(bin) + "\n");
     }
-    Out("Folder:   %ls\n", bin.c_str());
+    Out(LocalI18n::T("launcher.folder_ls.6d1e51ef7e"), bin.c_str());
     const GamePaths g(bin);
 
     PcWanted pc;
@@ -4272,24 +4331,28 @@ int wmain(int argc, wchar_t** argv) {
 
     const bool running = GameRunning();
     if (command == L"uninstall") {
-        if (running) return FailCode(kExitRunning, "%ls is running. Close it first.", kGameExe);
+        if (running) return FailCode(kExitRunning, LocalI18n::T("launcher.ls_is_running_close_it_first.11a9b5132d"), kGameExe);
         if (dry) return (TakeMod(g, true) | UndoPcChanges(true)) ? kExitError : kExitOk;
     } else {
         if (!IsFile(here + L"\\dinput8.dll"))
-            return Fail("dinput8.dll is missing next to sc-offline.exe.\n    Extract the whole zip into one folder and run this from there.");
-        if (running) return FailCode(kExitRunning, "%ls is already running. Close it first.", kGameExe);
+            return Fail(LocalI18n::T("launcher.dinput8_dll_is_missing_next_to_sc_offline_exe.bcaa271373"));
+        if (running) return FailCode(kExitRunning, LocalI18n::T("launcher.ls_is_already_running_close_it_first.1d3b3c2e11"), kGameExe);
         if (checks.pcLeftover && !dry && command == L"play") {
-            if (AskYes("Undo them now and stop, instead of playing?")) { Out("[i] undoing them (same as `sc-offline.exe uninstall`)\n"); command = L"uninstall"; }
-            else Out("[i] playing; they are undone together with this session's changes when the game closes.\n");
+            if (AskYes(LocalI18n::T("launcher.undo_them_now_and_stop_instead_of_playing.cc94b9f40d"))) { Out(LocalI18n::T("launcher.i_undoing_them_same_as_sc_offline_exe_uninsta.36f671ffe8")); command = L"uninstall"; }
+            else Out(LocalI18n::T("launcher.i_playing_they_are_undone_together_with_this_.75a24f5062"));
         }
         const bool playHandlesEac = command == L"play" && cfg.eacRename && !OnWine();
         if (checks.eacActive && !skipEac && !playHandlesEac)
-            return FailCode(kExitEac, "stopped: Easy Anti-Cheat is active (see above). --skip-eac-check overrides this.");
+            return FailCode(kExitEac, LocalI18n::T("launcher.stopped_easy_anti_cheat_is_active_see_above_s.5854d9efa8"));
     }
 
     // 3. What the mod reads (the SC_OFFLINE_* variables, see docs/data-files.md).
     const bool play = command == L"play";
     if (play) {
+        SetVar(L"SC_OFFLINE_LANGUAGE", LocalI18n::Wide(LocalI18n::selection.ui));
+        SetVar(L"SC_OFFLINE_GAME_LANGUAGE", LocalI18n::Wide(LocalI18n::selection.slot));
+        SetVar(L"SC_OFFLINE_RESUME", cfg.resume ? L"on" : L"off");
+        SetVar(L"SC_OFFLINE_AUTOSAVE", cfg.autosave ? L"on" : L"off");
         SetVar(L"SC_OFFLINE_BOOT_MAP", cfg.bootMap);
         SetVar(L"SC_OFFLINE_MOD_LOG", data + L"\\mod.log");
         SetVar(L"SC_OFFLINE_SPAWN_FILE", data + L"\\spawn.txt");
@@ -4318,25 +4381,27 @@ int wmain(int argc, wchar_t** argv) {
         if (PutMod(here, g, play ? "play" : "install", true)) return kExitError;
         if (play) {
             Out("[dry-run] would start %ls\\%ls\n", bin.c_str(), kGameExe);
-            Out("[dry-run] after the game closes: take the mod out, put back what was set aside, undo the PC changes\n");
-            if (cfg.cleanLogs) Out("[dry-run] then list this session's Game.log, logbackups and crash files and ask (twice) before deleting them\n");
+            Out(LocalI18n::T("launcher.dry_run_after_the_game_closes_take_the_mod_ou.89e69d711f"));
+            if (cfg.cleanLogs) Out(LocalI18n::T("launcher.dry_run_then_list_this_session_s_game_log_log.0ef57f5d48"));
         }
         return kExitOk;
     }
+    if (play && !LocalServerControl(here,false))
+        Out(LocalI18n::T("launcher.game_launch_will_continue_without_the_local_s.5f040193f7"));
     const wstring eventName = L"Local\\sc-offline-ready-" + std::to_wstring(GetCurrentProcessId());
     HANDLE ready = CreateEventW(nullptr, TRUE, FALSE, eventName.c_str());
     HANDLE closed = play ? CreateEventW(nullptr, TRUE, FALSE, (eventName + L"-closed").c_str()) : nullptr;
     HANDLE helper = ready ? StartHelper(command.c_str(), g, eventName, pc) : nullptr;
-    if (!helper) return Fail("couldn't start the mod helper (error %lu); administrator rights refused?", GetLastError());
+    if (!helper) return Fail(LocalI18n::T("launcher.couldn_t_start_the_mod_helper_error_lu_admini.910a748dcd"), GetLastError());
 
     if (!play) {   // install / uninstall: the helper does the whole job
         WaitForSingleObject(helper, INFINITE);
         DWORD code = 1; GetExitCodeProcess(helper, &code);
         CloseHandle(helper); CloseHandle(ready);
-        if (code) return Fail("the helper failed (exit %lu); see data\\launcher.log", code);
+        if (code) return Fail(LocalI18n::T("launcher.the_helper_failed_exit_lu_see_data_launcher_l.115b6d9fc3"), code);
         if (command == L"install")
-            Out("Mod:      installed. Start the game your usual way; run `sc-offline.exe uninstall` before going online.\n");
-        else Out("Mod:      removed.\n");
+            Out(LocalI18n::T("launcher.mod_installed_start_the_game_your_usual_way_r.bfa696d186"));
+        else Out(LocalI18n::T("launcher.mod_removed.5899cb0c48"));
         return kExitOk;
     }
 
@@ -4345,13 +4410,13 @@ int wmain(int argc, wchar_t** argv) {
     // signals (copied) or exits (copy failed; it undid nothing because nothing was left half-done).
     if (WaitForMultipleObjects(2, waitOn, FALSE, INFINITE) != WAIT_OBJECT_0) {
         DWORD code = 0; GetExitCodeProcess(helper, &code);
-        return Fail("couldn't copy the mod into %ls (helper exit %lu); see data\\launcher.log", bin.c_str(), code);
+        return Fail(LocalI18n::T("launcher.couldn_t_copy_the_mod_into_ls_helper_exit_lu_.414af7204e"), bin.c_str(), code);
     }
     CloseHandle(ready);
-    Out("Mod:      copied into Bin64\n");
+    Out(LocalI18n::T("launcher.mod_copied_into_bin64.9c687f932c"));
     if (NeedsPcChanges(pc))
-        Out("PC:       %s%s%s(undone when the game closes)\n", pc.firewall ? "game, RSI Launcher and CrashHandler network blocked, " : "",
-            pc.eacHosts ? "EAC hosts line, " : "", pc.eacRename ? "EAC renamed " : "");
+        Out(LocalI18n::T("launcher.pc_s_s_s_undone_when_the_game_closes.887a28f240"), pc.firewall ? LocalI18n::T("launcher.game_rsi_launcher_and_crashhandler_network_bl.2addbda4d5") : "",
+            pc.eacHosts ? LocalI18n::T("launcher.eac_hosts_line.6c4fece60b") : "", pc.eacRename ? LocalI18n::T("launcher.eac_renamed.dcf891fd99") : "");
     SetConsoleCtrlHandler(OnCtrl, TRUE);
 
     // 5. Play. The game runs with normal rights, never the helper's, and never administrator's even
@@ -4364,7 +4429,7 @@ int wmain(int argc, wchar_t** argv) {
     const ULONGLONG sessionStart = FileTimeU64(startFt) - 2ull * 10000000ull;   // 2 s of clock slack
     if (!StartGame(exe, cmd, bin, pi)) {
         const DWORD err = GetLastError();
-        Out("[!] couldn't start %ls (error %lu)\n", exe.c_str(), err);
+        Out(LocalI18n::T("launcher.couldn_t_start_ls_error_lu.556cabe784"), exe.c_str(), err);
         if (err == ERROR_ELEVATION_REQUIRED)
             Out("    StarCitizen.exe is set to \"Run this program as an administrator\" (its Properties >\n"
                 "    Compatibility tab). Untick it: as administrator, overlay layers such as OBS load into the\n"
@@ -4372,8 +4437,9 @@ int wmain(int argc, wchar_t** argv) {
         rc = kExitError;
     } else {
         if (!checks.gameBuild.empty()) WriteAll(data + L"\\game-build.txt", checks.gameBuild + "\n");
-        Out("\nPlaying. When the game closes, the mod is removed from Bin64.\n");
+        Out(LocalI18n::T("launcher.playing_when_the_game_closes_the_mod_is_remov.b50abe5bae"));
         WaitForSingleObject(pi.hProcess, INFINITE);
+        DWORD gameExit=0; GetExitCodeProcess(pi.hProcess,&gameExit);
         CloseHandle(pi.hThread); CloseHandle(pi.hProcess);
         while (GameRunning()) Sleep(2000);   // the game can hand over to a second StarCitizen.exe
         // Take the mod out and undo the PC changes now, before any question below: a question
@@ -4384,14 +4450,16 @@ int wmain(int argc, wchar_t** argv) {
             if (code == 0) Out("Mod:      removed from Bin64; PC changes undone. Safe to go online.\n");
             else Out("[!] the helper couldn't undo everything (exit %lu); click Uninstall. See data\\launcher.log\n", code);
         }
+        WriteSessionReport(here,ParentDir(bin),checks.gameBuild,gameExit,sessionStart);
         if (cfg.crashReports && OwnsConsoleInput()) OfferCrashReport(here, ParentDir(bin), sessionStart, checks.gameBuild);
         if (cfg.cleanLogs && OwnsConsoleInput()) OfferToCleanLogs(ParentDir(bin), sessionStart);
-        else if (cfg.cleanLogs) Out("Logs:     not asking (no console to answer in); run from a window to be asked\n");
+        else if (cfg.cleanLogs) Out(LocalI18n::T("launcher.logs_not_asking_no_console_to_answer_in_run_f.233c7333bf"));
     }
     if (WaitForSingleObject(helper, 0) != WAIT_OBJECT_0)
-        Out("Mod:      the helper removes it from Bin64 and undoes the PC changes as this window closes.\n");
+        Out(LocalI18n::T("launcher.mod_the_helper_removes_it_from_bin64_and_undo.fc38a85ff9"));
     CloseHandle(helper);
     if (closed) CloseHandle(closed);
     if (rc) PauseIfOwnConsole();
     return rc;
 }
+

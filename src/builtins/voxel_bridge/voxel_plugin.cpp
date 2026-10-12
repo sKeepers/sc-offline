@@ -526,7 +526,7 @@ sco_result VxLoad(const sco_api* api, sco_plugin* self) {
         "The link, the area and the crates in one line", CmdStatus);
     if (r == SCO_OK) r = api->subscribe(self, "tick", OnTick, nullptr);
     if (r != SCO_OK) return r;   // the host releases what was registered
-    RegisterBuiltinTab(api, self, "voxel_bridge.voxel", "Voxel", kTabVoxel, DrawVoxelTab);
+    RegisterBuiltinTab(api, self, "voxel_bridge.voxel", "Воксели", kTabVoxel, DrawVoxelTab);
     BindBuiltinHotkey(api, self, "ctrl+f9", "voxel_bridge.toggle");
     return SCO_OK;
 }
