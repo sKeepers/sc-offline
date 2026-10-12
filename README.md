@@ -1,3 +1,13 @@
+## RU / Local edition — Русская локальная редакция
+
+**sc-offline 0.7.7 RU / Local 1:** [Описание на русском](docs/RU_LOCAL_STATUS.md) · [English development status](docs/RU_LOCAL_STATUS.en.md).
+
+These documents describe our local changes, validation results and remaining limitations. The complete RU / Local source set and binary release have not yet been published here. Download links below refer to the original project.
+
+Документы описывают наши локальные изменения, проверки и ограничения. Полные исходники и бинарный релиз RU / Local здесь пока не опубликованы; ссылки Download ниже относятся к оригинальному проекту.
+
+---
+
 <div align="center">
 
 <a href="https://discord.gg/NJKeVfYCCC"><img src="https://img.shields.io/badge/JOIN%20THE%20DISCORD-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join the sc-offline Discord" height="64"></a>
