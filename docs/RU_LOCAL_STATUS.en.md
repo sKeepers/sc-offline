@@ -1,5 +1,7 @@
 # sc-offline RU / Local — Local 6 status
 
+> October 13, 2026 update: Local6 remains the published package; Local9 is the installed test build. [New changes, validation and limitations](DEVELOPMENT_LOCAL9.en.md).
+
 [Русская версия](RU_LOCAL_STATUS.md) · [Release](https://github.com/sKeepers/sc-offline/releases/tag/ru-local-0.7.7-6) · [Windows ZIP](https://github.com/sKeepers/sc-offline/releases/download/ru-local-0.7.7-6/sc-offline-0.7.7-ru-local-6-windows-x64.zip) · [Source](https://github.com/sKeepers/sc-offline/tree/codex/release-0.7.7-ru-local-6)
 
 Updated: **October 13, 2026**. Published: **0.7.7 RU / Local 6, Windows x64 development pre-release**.

@@ -1,5 +1,17 @@
 # sc-offline RU / Local
 
+## Текущая разработка / Current development
+
+**На тестовом ПК установлена Local9; последний опубликованный пакет — Local6.**
+Local7–Local9: сохранение карты PU/PU_All, ограниченный ASOP по реестру владения,
+диагностика терминала и питание после посадки. Игровая приёмка ожидается.
+
+**Local9 is installed on the test PC; Local6 remains the latest published package.**
+Startup/map selection, ledger-filtered ASOP and post-boarding power changes are
+under acceptance testing. Home storage passed independent tests; game integration is pending.
+
+[Актуальный прогресс и ограничения](docs/DEVELOPMENT_LOCAL9.ru.md) · [Current progress and limitations](docs/DEVELOPMENT_LOCAL9.en.md)
+
 Локальная редакция [scubamount/sc-offline](https://github.com/scubamount/sc-offline) для автономной игры в Star Citizen. Основана на ChrisWareOffline; авторство и лицензия GPL-3.0 сохранены.
 
 **Опубликована сборка 0.7.7 RU / Local 6 — предварительный релиз для Windows x64.**
