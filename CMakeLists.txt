@@ -34,6 +34,10 @@ add_executable(localization-hotfix-test EXCLUDE_FROM_ALL tools/localization_hotf
 target_compile_features(localization-hotfix-test PRIVATE cxx_std_17)
 target_compile_options(localization-hotfix-test PRIVATE /utf-8 /W4 /WX)
 
+add_executable(gear-integration-test EXCLUDE_FROM_ALL tools/gear_integration_test.cpp)
+target_compile_features(gear-integration-test PRIVATE cxx_std_17)
+target_compile_options(gear-integration-test PRIVATE /utf-8 /W4 /WX)
+
 add_executable(loadout-host-test EXCLUDE_FROM_ALL tools/loadout_host_test.cpp src/builtins/loadout_plugin.cpp)
 target_compile_features(loadout-host-test PRIVATE cxx_std_17)
 target_compile_options(loadout-host-test PRIVATE /utf-8)

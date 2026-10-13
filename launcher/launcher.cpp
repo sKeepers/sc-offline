@@ -3033,7 +3033,7 @@ static void DrawControls(float W) {
     const float sx = W - Px(10) - 4 * s - Px(8), tw = Px(100), tx = sx - Px(8) - tw;
     g.controlsX = tx - Px(4);
     Label(ImVec2(Px(kUiSideW) + Px(18), (Px(kUiTop) - ImGui::GetFontSize()) * 0.5f),
-          kUiTextBody, (std::string("sc-offline v")+SCO_VERSION+" / Local 5 ["+LocalI18n::activeUI+"]").c_str());
+          kUiTextBody, (std::string("sc-offline v")+SCO_VERSION+" / Local 6 ["+LocalI18n::activeUI+"]").c_str());
     {   // Discord status toggle: the Discord plugin's `disabled` marker; the next Play uses it.
         const ImVec2 lo(tx, y);
         ImGui::SetCursorScreenPos(lo);
@@ -4112,7 +4112,7 @@ static int RunGui() {
     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW); wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
     wc.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
     RegisterClassW(&wc);
-    const wstring title = L"sc-offline v" + Wide(SCO_VERSION) + L" / Local 5 (SDK 2.0)" + L" [" + LocalI18n::Wide(LocalI18n::activeUI) + L"]";
+    const wstring title = L"sc-offline v" + Wide(SCO_VERSION) + L" / Local 6 (SDK 2.0)" + L" [" + LocalI18n::Wide(LocalI18n::activeUI) + L"]";
     HWND wnd = CreateWindowExW(0, L"sc-offline", title.c_str(), WS_POPUP | WS_THICKFRAME | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
                                g.splash.left, g.splash.top, sw, sh, nullptr, nullptr, wc.hInstance, nullptr);
     if (!wnd) return kExitError;

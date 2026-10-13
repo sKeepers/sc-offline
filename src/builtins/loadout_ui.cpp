@@ -86,6 +86,74 @@ static void GearCombo(int slot, const char* label, const char* none, int& pick, 
     ImGui::EndCombo();
 }
 
+// Weapon attachments and Pyro RYT multitool parts. The lists, ports and default-SRT rule follow
+// Alpha-Rome0's sc-offline PR #127 (7ea9731); the Russian UI, readable names, per-list search and
+// the selection rules (gear_attachments.h) are Claude's Local5 integration. A class shown here is
+// known to the game; whether it fits the chosen weapon is not checked.
+static void ExtraCombo(bool primary, int list, const char* label, const char* none, int& pick, float width) {
+    const int n = Menu_GearExtraCount(list);
+    if (pick >= n) pick = -1;
+    static char filters[2][gear::Extra_Count][128]{};
+    char* filter = filters[primary ? 0 : 1][list];
+    const std::string preview=std::string(label)+": "+(pick>=0?ReadableListName(Menu_GearExtraName(list,pick)):none);
+    char id[32]; snprintf(id,sizeof(id),"##gearx%d_%d",primary?1:0,list);
+    ImGui::SetNextItemWidth(width);
+    if (!ImGui::BeginCombo(id, preview.c_str(), ImGuiComboFlags_HeightLarge)) return;
+    ImGui::PushID(id);
+    if(ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+    SearchBox("##search", "Название или часть названия…",filter,sizeof(filters[0][0]));
+    if (ImGui::Selectable(none, pick < 0)) pick = -1;
+    int shown=0;
+    for (int i=0;i<n;++i) {
+        const char* name=Menu_GearExtraName(list,i);
+        const char* display=ReadableListName(name);
+        const char* alias=gear::EnglishAlias(name);
+        if(!ListMatchesFilter(name,display,filter) && !(alias && MatchesFilter(alias,filter))) continue;
+        ++shown; ImGui::PushID(i);
+        if(ImGui::Selectable(display,i==pick)) pick=i;
+        if(alias) ImGui::SetItemTooltip("Класс: %s\n%s",name,alias);
+        else ImGui::SetItemTooltip("Класс: %s",name);
+        ImGui::PopID();
+    }
+    if(!shown) Hint(n?"Совпадений нет. Очистите поиск в списке.":"Список пуст: раздела нет в items.txt или игра не знает его классы.");
+    ImGui::TextDisabled("Найдено: %d / %d",shown,n);
+    ImGui::PopID();
+    ImGui::EndCombo();
+}
+
+static void HandAttachments(bool primary, const char* weapon, MenuWeaponAttachments& a, float half) {
+    static const char* const kLabels[Attachment_SlotCount] = { "Прицел", "Дульная насадка", "Подствольный модуль" };
+    gear::Hand h = gear::HandOf(a, primary);
+    SectionHeading(primary ? "Насадки основного оружия" : "Насадки пистолета");
+    switch (gear::Classify(weapon)) {
+    case gear::WeaponKind::None:
+        Hint("Оружие не выбрано: насадки и модули не надеваются.");
+        break;
+    case gear::WeaponKind::Tool:
+        Hint("Для этого инструмента насадки не предлагаются.");
+        break;
+    case gear::WeaponKind::Firearm:
+        for (int s = 0; s < Attachment_SlotCount; ++s) {
+            if (s % 2) ImGui::SameLine();
+            ExtraCombo(primary, s, kLabels[s], "Нет", h.firearm[s], half);
+        }
+        Hint("В списках только классы, известные игре. Подходит ли насадка к этому оружию, мод не проверяет: неподходящую игра может не установить.");
+        break;
+    case gear::WeaponKind::Multitool: {
+        const bool defaultSrt = gear::IsDefaultSrtTool(weapon);
+        ExtraCombo(primary, gear::Extra_ToolModule, "Модуль", defaultSrt ? "По умолчанию (SRT класса)" : "Нет", *h.module, half);
+        const char* module = *h.module >= 0 ? Menu_GearExtraName(gear::Extra_ToolModule, *h.module) : nullptr;
+        if (gear::UsesSrtCanister(weapon, module)) {
+            ImGui::SameLine();
+            ExtraCombo(primary, gear::Extra_ToolCanister, "Картридж SRT", defaultSrt && !module ? "По умолчанию" : "Нет", *h.canister, half);
+        } else *h.canister = -1;
+        Hint(defaultSrt ? "Без выбора остаются стандартные вложения SRT этого класса. Явный выбор ставит базовый мультитул с выбранным модулем и батареей."
+                        : "При выборе модуля батарея из раздела [toolbattery] добавляется сама.");
+        break;
+    }
+    }
+}
+
 void DrawPlayerTab(void*, void*) {
     static const std::string profileName = [] {
         char path[MAX_PATH]={};wchar_t widePath[MAX_PATH]={},name[49]={};char utf8[196]={};
@@ -121,6 +189,8 @@ void DrawPlayerTab(void*, void*) {
 
     SectionHeading("Снаряжение");
     static int  gear[Gear_SlotCount] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+    static MenuWeaponAttachments attachments;
+    static std::string lastWeapon[2];
     static char gearFilter[64] = "";
     static const struct { const char* label; const char* none; } kGear[Gear_SlotCount] = {
         { "Поддоспешник", "По умолчанию" }, { "Шлем", "Нет" }, { "Корпус", "Нет" }, { "Руки", "Нет" }, { "Ноги", "Нет" },
@@ -132,7 +202,14 @@ void DrawPlayerTab(void*, void*) {
         if (s % 2) ImGui::SameLine();
         GearCombo(s, kGear[s].label, kGear[s].none, gear[s], gearFilter, half);
     }
-    if (PrimaryButton("Надеть снаряжение")) { Menu_RequestEquip(gear); MenuClose(); }
+    const char* primary = gear[Gear_Primary] >= 0 ? Menu_GearName(Gear_Primary, gear[Gear_Primary]) : "";
+    const char* sidearm = gear[Gear_Sidearm] >= 0 ? Menu_GearName(Gear_Sidearm, gear[Gear_Sidearm]) : "";
+    gear::ResetOnWeaponChange(lastWeapon[0], primary, attachments, true);
+    gear::ResetOnWeaponChange(lastWeapon[1], sidearm, attachments, false);
+    HandAttachments(true, primary, attachments, half);
+    HandAttachments(false, sidearm, attachments, half);
+    if (ImGui::SmallButton("Сбросить насадки и модули")) attachments = MenuWeaponAttachments{};
+    if (PrimaryButton("Надеть снаряжение")) { Menu_RequestEquip(gear, &attachments); MenuClose(); }
 }
 
 void DrawSq42Tab(void*, void*) {

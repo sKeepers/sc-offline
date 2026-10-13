@@ -1,0 +1,81 @@
+ПРОИСХОЖДЕНИЕ ФАЙЛОВ: claude-local5-attachments-20261013
+=========================================================
+Основа: текущий Local5 из 01-ДЛЯ-CLAUDE\claude-local5-attachments-20261013\source
+(upstream sc-offline 0.7.7 + main 85774b7, правки Local1..Local5 выполнил Codex).
+Сторонний код: PR #127 scubamount/sc-offline, автор Alpha Romeo
+<Alpha-Rome0@users.noreply.github.com>, коммит 7ea9731b693bb9042ccbb721099ca88acb80d6f4
+от 12.10.2026, «Add firearm and multitool gear attachments», base 85774b7, лицензия GPL-3.0.
+Полные файлы PR взяты из публичного клона (remote Alpha-Rome0) и сверены с приложенными
+hunks. Утверждение автора «Confirmed working in game» мы НЕ считаем своей игровой проверкой.
+Правки Claude (Opus 5.5) сделаны 13.10.2026, подписаны в комментариях как
+«Claude, Local5 2026-10-13». Игра, DLL и EXE не запускались и не устанавливались.
+
+Обозначения: [U] upstream sc-offline (scubamount), [A] Alpha-Rome0 PR #127, [X] Codex Local1..5,
+[C] Claude.
+
+source\data\items.txt
+  [U] 10 разделов снаряжения, 1489 классов. В Local5 файл хранится с CRLF, в upstream с LF,
+  содержимое совпадает. Байты Local5 сохранены как префикс без изменений.
+  [A] дописанный блок из 118 строк: [optic] 53, [barrel] 35, [underbarrel] 10, [toolmodule] 5,
+  [toolcanister] 2, [toolbattery] 1. Классы побайтно равны PR127 head.
+  [C] только перевод добавленного блока в CRLF, как у остального файла.
+
+source\src\gear_attachments.h  (новый)
+  [U] перенесены без изменения поведения: enum MenuGearSlot, разбор строки items.txt
+  (strcspn "\r\n#", заголовок [slot]), Pick, MatchingMag, LoadoutItem, раскладка XML 10 слотов.
+  [A] модель: разделы насадок/мультитула, MenuWeaponAttachments, порты optics_attach/
+  barrel_attach/underbarrel_attach, теги WeaponAttachment(IronSight/Barrel/BottomAttachment/
+  Utility/Magazine), utility_attach_1, батарея в magazine_attach, правило default SRT,
+  английские названия модулей и картриджей (EnglishAlias).
+  [C] чистый заголовок без Windows и игры; общий пул имён вместо четырёх массивов
+  по 3000x64; отдельный лимит 512 для доп. списков; проверка «простого» имени класса
+  для новых разделов; Classify (инструменты без насадок), Sanitize, ResetOnWeaponChange,
+  HasChoices; тот же XML, что раньше, если новых выборов нет; поиск базового класса
+  и SRT-модуля в загруженных списках; BuildNotes; IsLoadoutXmlPayload.
+
+source\src\loadout.cpp
+  [U] основа файла. [X] CopyLastLocalLoadout/g_lastLocalXml, русские сообщения LoadLoadout.
+  [A] идея: MenuWeaponAttachments в запросе, вызовы списков насадок.
+  [C] g_catalog вместо g_gear*, BuildGearLists через gear::ParseLine (проверка класса
+  остаётся единственным вызовом игры), Menu_GearExtraCount/Name, Menu_RequestEquip
+  с насадками, EquipPicks через gear::GearXml с сообщениями BuildNotes.
+  [C] исправлены два двойных перекодирования UTF-8 в LoadLoadout (строки [X]
+  были сохранены как cp1251-mojibake: «РІС‹ РµС‰С‘…» -> «вы ещё не появились в игровом мире»,
+  «РѕС€РёР±РєР°…» -> «ошибка загрузки снаряжения»). Отдельная правка, к PR127 не относится.
+
+source\src\menu.h
+  [U] основа. [X] include local_api.h.
+  [A] объявления списков насадок и Menu_RequestEquip(picks, attachments = nullptr).
+  [C] enum перенесён в gear_attachments.h; обобщённые Menu_GearExtraCount/Name вместо
+  шести функций PR127.
+
+source\src\builtins\loadout_ui.cpp
+  [U] основа вкладки. [X] русский UI, GearCombo с ReadableListName, поиском и подсказкой класса.
+  [A] выбор насадок и мультитула во вкладке «Игрок», правило показа картриджа.
+  [C] ExtraCombo/HandAttachments: русские подписи, ReadableListName, частичный поиск
+  ListMatchesFilter в каждом списке, подсказка «Класс: …», сброс выбора при смене оружия,
+  кнопка «Сбросить насадки и модули», предупреждение о непроверенной совместимости.
+
+source\src\builtins\loadout_plugin.cpp
+  [U] основа. [X] русский заголовок, ResetPlayerTab/ResetLocalCharactersTab.
+  [A] три английских текста loadout.equip (ответ, help, подсказка аргумента), взяты дословно.
+  [C] только проверка длин: 86 <= 127 и 95 <= 255 байт.
+
+source\src\list_label.h
+  [X] словарь читаемого fallback. [C] 13 сокращений классов насадок и модулей
+  (optics, ubarrel, holo, rdot, supp, comp, stab, flsh, lasr, mining, cutter, tractorbeam,
+  healing). Это наш fallback, а не текст global.ini. Неоднозначные barrel и lamp не тронуты.
+
+source\src\local_plugin_adapter.cpp
+  [X] основа. [C] проверка equip_xml вынесена в gear::IsLoadoutXmlPayload с той же логикой:
+  1 MiB, <Loadout и </Loadout>.
+
+tests\*  (всё [C])
+  attachments_test.cpp, build.cmd, mutants.ps1, static_check.py, fixtures\synthetic_items.txt
+  (синтетика, не игровые данные).
+  legacy_local5_reference.h: копия [U]/[X] кода 10 слотов из текущего loadout.cpp, служит
+  эталоном «до». Глобальные переменные собраны в структуру, проверка класса передаётся
+  аргументом.
+
+Не изменялись: SDK/C ABI (sco_*.h, LocalFeaturesV1 в local_api.h), plugins\loadout_presets,
+src\loadout.h, provider lifetime, NPC quarantine, SDK pin. PR126 не применялся.

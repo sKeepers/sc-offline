@@ -71,7 +71,13 @@ inline std::string ListDisplayLabel(const char* raw) {
         {"storage","Хранение"},{"lights","Освещение"},{"turrets","Турели"},
         {"deco","Декорации"},{"props","Предметы"},{"displays","Дисплеи"},
         {"crate","Ящик"},{"container","Контейнер"},{"chair","Стул"},
-        {"table","Стол"},{"bed","Кровать"},{"door","Дверь"},{"wall","Стена"}
+        {"table","Стол"},{"bed","Кровать"},{"door","Дверь"},{"wall","Стена"},
+        // Weapon attachment and multitool class parts (Claude, Local5 2026-10-13): our readable
+        // fallback for class tokens, not global.ini text. Ambiguous tokens (barrel, lamp) stay as is.
+        {"optics","Прицел"},{"ubarrel","Подствольный модуль"},{"holo","Голографический"},
+        {"rdot","Коллиматорный"},{"supp","Глушитель"},{"comp","Компенсатор"},
+        {"stab","Стабилизатор"},{"flsh","Фонарь"},{"lasr","Лазерный целеуказатель"},
+        {"mining","Добыча"},{"cutter","Резак"},{"tractorbeam","Тяговый луч"},{"healing","Лечение"}
     };
     std::string whole=raw?raw:"";
     for(char& c:whole) if(static_cast<unsigned char>(c)<128)c=static_cast<char>(std::tolower(static_cast<unsigned char>(c)));

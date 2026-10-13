@@ -1,6 +1,7 @@
 #pragma once
 #include "../plugins/exploration/local_api.h"
 #include <windows.h>
+#include "gear_attachments.h"
 
 
 
@@ -34,11 +35,13 @@ void            Menu_RequestFlightReady();
 void            Menu_GetStatus(char* out, size_t n);
 void            SetMenuStatus(const char* fmt, ...);   // also logged; shown in the menu's status strip
 
-enum MenuGearSlot { Gear_Undersuit, Gear_Helmet, Gear_Torso, Gear_Arms, Gear_Legs, Gear_Backpack,
-                    Gear_Primary, Gear_Sidearm, Gear_Ammo, Gear_Grenade, Gear_SlotCount };
+// MenuGearSlot, MenuWeaponAttachments and the extra lists (gear::ExtraList): gear_attachments.h.
 int             Menu_GearCount(int slot);
 const char*     Menu_GearName(int slot, int index);
-void            Menu_RequestEquip(const int picks[Gear_SlotCount]);
+int             Menu_GearExtraCount(int list);              // -1 while the lists load, like Menu_GearCount
+const char*     Menu_GearExtraName(int list, int index);
+// attachments: null = none chosen (loadout.equip), as before PR #127.
+void            Menu_RequestEquip(const int picks[Gear_SlotCount], const MenuWeaponAttachments* attachments = nullptr);
 void            Menu_RunConsole(const char* cmd);
 bool            Menu_ConsoleReady();   // the game's console was found
 

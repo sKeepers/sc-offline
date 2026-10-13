@@ -16,10 +16,10 @@ static int Chain(uint64_t id,ZoneFrame* out,int max){
  __except(EXCEPTION_EXECUTE_HANDLER){return 0;}
 }
 static void Equip(const char* xml,uint32_t n,const char* tag){
- if(!xml || !n || n>1024*1024)return;
- const std::string data(xml,n);
- if(data.find("<Loadout")==std::string::npos || data.find("</Loadout>")==std::string::npos)return;
- EquipLoadoutXml(data,tag?tag:"local.plugin");
+ // Same check as before, shared with the tests (gear_attachments.h): old presets and the new
+ // attachment XML are both plain <Loadout> documents up to 1 MiB.
+ if(!gear::IsLoadoutXmlPayload(xml,n))return;
+ EquipLoadoutXml(std::string(xml,n),tag?tag:"local.plugin");
 }
 static void Status(const char* text){SetMenuStatus("%s",text?text:"");}
 static size_t Caps(LocalCap* out,size_t max){

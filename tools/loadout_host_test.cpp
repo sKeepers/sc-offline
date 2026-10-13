@@ -25,7 +25,7 @@ static void Check(bool result,const char* message){++checks;if(!result){++failur
 void ProcessLoadout(){} void ProcessOutfits(){}
 int Menu_GearCount(int){return 0;}
 const char* Menu_GearName(int,int){return "";}
-void Menu_RequestEquip(const int[Gear_SlotCount]){}
+void Menu_RequestEquip(const int[Gear_SlotCount],const MenuWeaponAttachments*){}
 int Menu_OutfitCount(){return 0;}
 const char* Menu_OutfitName(int){return "";}
 void Menu_RequestWearOutfit(int){}

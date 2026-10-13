@@ -1,4 +1,4 @@
-# 0.7.7 RU / Local 5 — development pre-release
+# 0.7.7 RU / Local 6 — development pre-release
 
 Windows x64; bring your own installed game. The optional localhost dashboard needs Python 3.11+ with the standard library only.
 
@@ -17,4 +17,4 @@ Build and autonomous tests passed; the new localization has not been visually ve
 The localhost ledger is not a dedicated game simulation server. Inventory accounting does not mean physical items exist in game. This archive includes the upstream project's OfflineDB template, not personal player data. No credentials, saves, logs, databases, game translations or game assets are included.
 
 
-Local5 correction details / Исправления Local5: [Русский](LOCAL5-FIXES.ru.md) · [English](LOCAL5-FIXES.en.md).
+Local6 features and verification / Возможности и проверки: [Русский](LOCAL6.ru.md) · [English](LOCAL6.en.md).

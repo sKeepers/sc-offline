@@ -52,7 +52,7 @@ sco_result Equip(const sco_arg* args, uint32_t, void*, char* reply, uint32_t siz
                 if (_stricmp(Menu_GearName(s, i), item) == 0) { slot = s; index = i; break; }
         }
         if (index < 0) {
-            snprintf(reply, size, "'%s' isn't in the gear list (items.txt)", item);
+            snprintf(reply, size, "'%s' isn't a gear item in items.txt", item);
             return SCO_FAILED;
         }
         if (picks[slot] >= 0) {
@@ -104,10 +104,10 @@ sco_result LoadoutLoad(const sco_api* api, sco_plugin* self) {
     // Local shell only: ownership and npc.* implementation live in external DLL.
     ResetLocalCharactersTab();
     ResetPlayerTab();
-    const sco_arg_def items[1] = { BuiltinArg("items", SCO_ARG_STRING, "Item names from items.txt, separated by spaces or commas") };
+    const sco_arg_def items[1] = { BuiltinArg("items", SCO_ARG_STRING, "Gear item names from the ten gear sections in items.txt, separated by spaces or commas") };
     const sco_arg_def outfit[1] = { BuiltinArg("outfit", SCO_ARG_STRING, "Outfit name, as in outfits.txt") };
     sco_result r = RegisterBuiltinCommand(api, self, kCap, "loadout.equip", "Надеть снаряжение",
-        "Equips these items, at most one per slot, as the gear menu's Equip gear does", Equip, items, 1);
+        "Equips gear items from items.txt, at most one per gear slot, as the gear menu's Equip gear does", Equip, items, 1);
     if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, kCap, "loadout.wear", "Надеть комплект SQ42",
         "Wears a Squadron 42 outfit, as the Squadron 42 tab does", Wear, outfit, 1);
     if (r == SCO_OK) r = api->subscribe(self, "tick", OnTick, nullptr);

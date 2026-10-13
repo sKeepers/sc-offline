@@ -30,31 +30,36 @@ bool ResolveLoadoutApi(const Section&, const Section&) {
     return true;
 }
 
-static const char* const kSlotNames[Gear_SlotCount] = {
-    "undersuit", "helmet", "torso", "arms", "legs", "backpack", "primary", "sidearm", "ammo", "grenade" };
-
-constexpr int        kMaxGear = 3000;
-static char          g_gear[kMaxGear][64];
-static int           g_gearStart[Gear_SlotCount];
-static int           g_gearCount[Gear_SlotCount];
+// items.txt's lists: the ten gear slots and, apart from them, the attachment and multitool lists
+// (gear_attachments.h; attachments after Alpha-Rome0's PR #127, integration by Claude for Local5).
+static gear::Catalog g_catalog;
 static volatile LONG g_gearState = 0;
 static SRWLOCK       g_gearLock = SRWLOCK_INIT;
-static struct { bool pending; int picks[Gear_SlotCount]; } g_equipRequest;
+static struct { bool pending; int picks[Gear_SlotCount]; MenuWeaponAttachments attachments; } g_equipRequest;
 
 int Menu_GearCount(int slot) {
     if (g_gearState != 2) { InterlockedCompareExchange(&g_gearState, 1, 0); return -1; }
-    return slot >= 0 && slot < Gear_SlotCount ? g_gearCount[slot] : 0;
+    return gear::GearCount(g_catalog, slot);
 }
 
 const char* Menu_GearName(int slot, int index) {
-    if (g_gearState != 2 || slot < 0 || slot >= Gear_SlotCount || index < 0 || index >= g_gearCount[slot]) return "";
-    return g_gear[g_gearStart[slot] + index];
+    return g_gearState == 2 ? gear::GearName(g_catalog, slot, index) : "";
 }
 
-void Menu_RequestEquip(const int picks[Gear_SlotCount]) {
+int Menu_GearExtraCount(int list) {
+    if (g_gearState != 2) { InterlockedCompareExchange(&g_gearState, 1, 0); return -1; }
+    return gear::ExtraCount(g_catalog, list);
+}
+
+const char* Menu_GearExtraName(int list, int index) {
+    return g_gearState == 2 ? gear::ExtraName(g_catalog, list, index) : "";
+}
+
+void Menu_RequestEquip(const int picks[Gear_SlotCount], const MenuWeaponAttachments* attachments) {
     AcquireSRWLockExclusive(&g_gearLock);
     g_equipRequest.pending = true;
     memcpy(g_equipRequest.picks, picks, sizeof(g_equipRequest.picks));
+    g_equipRequest.attachments = attachments ? *attachments : MenuWeaponAttachments{};
     ReleaseSRWLockExclusive(&g_gearLock);
 }
 
@@ -64,47 +69,21 @@ static int BuildGearLists() {
     FILE* f = _fsopen(path, "r", _SH_DENYNO);
     if (!f) { Log("[gear] can't open %s", path); return 0; }
     const uintptr_t registry = VCall<uintptr_t>(*g_tp.entitySystem, actors::kEsClassRegistry);
-    int slot = -1, total = 0, unknown = 0;
+    // The class check is the only game call; it proves a class exists, not that it fits a weapon.
+    const auto exists = [registry](const char* name) {
+        return VCall<uintptr_t>(registry, actors::kRegistryFindClass, name) != 0;
+    };
+    gear::Begin(g_catalog);
     char line[128];
-    while (fgets(line, sizeof(line), f)) {
-        line[strcspn(line, "\r\n#")] = 0;
-        char* name = line + strspn(line, " \t");
-        if (!*name) continue;
-        if (*name == '[') {
-            slot = -1;
-            for (int s = 0; s < Gear_SlotCount; ++s)
-                if (_strnicmp(name + 1, kSlotNames[s], strlen(kSlotNames[s])) == 0 && name[1 + strlen(kSlotNames[s])] == ']') slot = s;
-            if (slot >= 0) { g_gearStart[slot] = total; g_gearCount[slot] = 0; }
-            continue;
-        }
-        if (slot < 0 || total >= kMaxGear) continue;
-        if (!VCall<uintptr_t>(registry, actors::kRegistryFindClass, static_cast<const char*>(name))) { ++unknown; continue; }
-        strncpy_s(g_gear[total++], name, _TRUNCATE);
-        ++g_gearCount[slot];
-    }
+    while (fgets(line, sizeof(line), f)) gear::ParseLine(g_catalog, line, exists);
     fclose(f);
-    Log("[gear] %d items in the gear menu (%d unknown names skipped)", total, unknown);
-    return total;
-}
-
-static const char* Pick(const int picks[Gear_SlotCount], int slot) {
-    const int i = picks[slot];
-    return i >= 0 && i < g_gearCount[slot] ? g_gear[g_gearStart[slot] + i] : nullptr;
-}
-
-static const char* MatchingMag(const char* gun) {
-    if (!gun) return nullptr;
-    char base[64];
-    strncpy_s(base, gun, _TRUNCATE);
-    for (;;) {
-        char want[72];
-        snprintf(want, sizeof(want), "%s_mag", base);
-        for (int i = 0; i < g_gearCount[Gear_Ammo]; ++i)
-            if (_stricmp(g_gear[g_gearStart[Gear_Ammo] + i], want) == 0) return g_gear[g_gearStart[Gear_Ammo] + i];
-        char* cut = strrchr(base, '_');
-        if (!cut) return nullptr;
-        *cut = 0;
-    }
+    const gear::Catalog& c = g_catalog;
+    Log("[gear] %d items in the gear menu; %d optics, %d barrels, %d underbarrels, %d multitool modules, "
+        "%d canisters, %d batteries (%d unknown names skipped, %d malformed extra names)",
+        c.gearTotal, c.extraCount[gear::Extra_Optic], c.extraCount[gear::Extra_Barrel], c.extraCount[gear::Extra_Underbarrel],
+        c.extraCount[gear::Extra_ToolModule], c.extraCount[gear::Extra_ToolCanister], c.extraCount[gear::Extra_ToolBattery],
+        c.unknown, c.rejected);
+    return c.gearTotal;
 }
 
 bool LoadoutApiReady() { return g_lo.ok; }
@@ -113,8 +92,7 @@ static volatile LONG g_s42VisorHud = 0;
 void Menu_SetS42VisorHud(bool on) { InterlockedExchange(&g_s42VisorHud, on ? 1 : 0); }
 
 std::string LoadoutItem(const char* port, const char* name, const std::string& children) {
-    std::string s = std::string("<Item portName=\"") + port + "\" itemName=\"" + name + "\"";
-    return children.empty() ? s + "/>" : s + "><Items>" + children + "</Items></Item>";
+    return gear::Item(port, name, children);
 }
 
 // The player's head, as the original builds it (orig 1800265d0). A head item is always
@@ -146,50 +124,15 @@ std::string MobiGlasItem() {
                "<Item portName=\"legacy_mobiglas_screen_attach\" itemName=\"LegacyMobiGlas\" tag=\"MobiGlas\"/>");
 }
 
-static std::string Gun(const char* port, const char* gun) {
-    const char* mag = MatchingMag(gun);
-    return LoadoutItem(port, gun, mag ? LoadoutItem("magazine_attach", mag) : std::string());
-}
-
-static std::string LoadoutXml(const int picks[Gear_SlotCount]) {
-    const char* torso   = Pick(picks, Gear_Torso);
-    const char* legs    = Pick(picks, Gear_Legs);
-    const char* primary = Pick(picks, Gear_Primary);
-    const char* sidearm = Pick(picks, Gear_Sidearm);
-    const char* ammo    = Pick(picks, Gear_Ammo);
-    if (!ammo) ammo = MatchingMag(primary);
-
-    std::string onTorso, onLegs;
-    if (const char* b = Pick(picks, Gear_Backpack)) onTorso += LoadoutItem("backpack", b);
-    if (primary) onTorso += Gun("wep_stocked_3", primary);
-    for (int i = 1; ammo && i <= (torso ? 4 : 2); ++i) onTorso += LoadoutItem(("magazine_attach_" + std::to_string(i)).c_str(), ammo);
-    if (const char* g = Pick(picks, Gear_Grenade); g && torso)
-        for (int i = 1; i <= 2; ++i) onTorso += LoadoutItem(("grenade_attach_" + std::to_string(i)).c_str(), g);
-    if (sidearm) onLegs += Gun("wep_sidearm", sidearm);
-    onLegs += LoadoutItem("medPen_attach_1", "crlf_consumable_healing_01");
-
-    std::string onSuit;
-    if (const char* h = Pick(picks, Gear_Helmet)) onSuit += LoadoutItem("Armor_Helmet", h);
-    if (torso) onSuit += LoadoutItem("Armor_Torso", torso, onTorso); else onSuit += onTorso;
-    if (const char* a = Pick(picks, Gear_Arms)) onSuit += LoadoutItem("Armor_Arms", a);
-    if (legs) onSuit += LoadoutItem("Armor_Legs", legs, onLegs); else onSuit += onLegs;
-
-    const char* suit = Pick(picks, Gear_Undersuit);
-    return "<Loadout><Items>" + LoadoutItem("Body_ItemPort", "body_01",
-        LoadoutItem("Armor_Undersuit", suit ? suit : "rsi_odyssey_undersuit_01_01_01", onSuit)
-        + HeadItem(HeadParts{}) + MobiGlasItem())
-        + "</Items></Loadout>\n";
-}
-
 static const char* LoadLoadout(const char* gamePath) {
     __try {
         const uintptr_t framework = VCall<uintptr_t>(*g_lo.game, g_lo.frameworkSlot);
         const uintptr_t actor = framework ? VCall<uintptr_t>(framework, g_lo.actorSlot) : 0;
-        if (!actor) return "РІС‹ РµС‰С‘ РЅРµ РїРѕСЏРІРёР»РёСЃСЊ РІ РёРіСЂРѕРІРѕРј РјРёСЂРµ";
+        if (!actor) return "вы ещё не появились в игровом мире";
         VCall<void>(actor, g_lo.loadSlot, gamePath, 8u, true);
         return nullptr;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
-        return "РѕС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё СЃРЅР°СЂСЏР¶РµРЅРёСЏ";
+        return "ошибка загрузки снаряжения";
     }
 }
 
@@ -224,7 +167,20 @@ void EquipLoadoutXml(const std::string& xml, const char* tag) {
     strcpy_s(lastFile, file);
 }
 
-static void EquipPicks(const int picks[Gear_SlotCount]) { EquipLoadoutXml(LoadoutXml(picks), "gear"); }
+// The gear menu's XML (gear_attachments.h): byte-identical to the ten-slot builder when no
+// attachment or multitool part is chosen. Notes say what the builder had to leave out.
+static void EquipPicks(const int picks[Gear_SlotCount], const MenuWeaponAttachments& attachments) {
+    gear::BuildNotes notes;
+    EquipLoadoutXml(gear::GearXml(g_catalog, picks, attachments, HeadItem(HeadParts{}) + MobiGlasItem(), &notes), "gear");
+    if (notes.primaryToolLegacy)
+        SetMenuStatus("Мультитул основного оружия надет без модуля: порт utility_attach_1 занят мультитулом пистолета.");
+    if (notes.baseMultitoolMissing)
+        SetMenuStatus("Модуль или картридж не применён: базового класса grin_multitool_01 нет в списке снаряжения; оставлен SRT по умолчанию.");
+    if (notes.srtModuleMissing)
+        SetMenuStatus("Картридж не применён: модуля SRT нет в разделе [toolmodule]; оставлен SRT по умолчанию.");
+    if (notes.noBattery)
+        Log("[gear] multitool without a battery: [toolbattery] is empty or unknown to the game");
+}
 
 void ProcessLoadout() {
     if (!g_lo.ok || !g_tp.ok) return;
@@ -241,5 +197,5 @@ void ProcessLoadout() {
     const auto req = g_equipRequest;
     g_equipRequest.pending = false;
     ReleaseSRWLockExclusive(&g_gearLock);
-    if (req.pending && g_gearState == 2) EquipPicks(req.picks);
+    if (req.pending && g_gearState == 2) EquipPicks(req.picks, req.attachments);
 }
