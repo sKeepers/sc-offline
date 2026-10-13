@@ -14,6 +14,10 @@ are added. Build and independent checks passed; home arrival and new ship spawni
 await gameplay verification. One Andromeda boarding/power case is confirmed;
 engines still need manual I. Local10 is not yet available as a release download.
 
+Сервер 0.2.4: локальные приобретения с балансом/остатками/квитанциями (41 тест); физическая выдача не подключена. В чеклист добавлены скриншоты и ZIP-экспорт (6 тестов).
+
+Server 0.2.4 adds ledger purchases with balance/stock/receipts (41 tests), without physical delivery. Checklist image attachments and ZIP export added (6 tests).
+
 [Актуальный прогресс и ограничения](docs/DEVELOPMENT_LOCAL9.ru.md) · [Current progress and limitations](docs/DEVELOPMENT_LOCAL9.en.md)
 
 Локальная редакция [scubamount/sc-offline](https://github.com/scubamount/sc-offline) для автономной игры в Star Citizen. Основана на ChrisWareOffline; авторство и лицензия GPL-3.0 сохранены.

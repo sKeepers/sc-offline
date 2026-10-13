@@ -1,6 +1,6 @@
 # Development after Local6: Local7–Local10
 
-Updated October 13, 2026. **0.7.7 / Local10 candidate is installed on the test PC.
+Updated October 14, 2026. **0.7.7 / Local10 candidate is installed on the test PC.
 Local6 remains the latest published package.** Local7–Local10 changes are not in
 the downloadable Local6 package. Main contains documentation on an earlier code base.
 
@@ -14,8 +14,8 @@ the downloadable Local6 package. Main contains documentation on an earlier code 
 | Plugin tooltips | Wrapped purpose descriptions in the launcher language, using stable plugin IDs | Build/localization checks passed; user confirmed readable Russian descriptions |
 | Spawn catalogue | Seven missing classes added from the installed 4.10.2 DataCore | Records and installed list checked; spawning the new models is not yet gameplay-verified |
 | Home, Local10 candidate | Persistent profile ID; Exploration “Make this home”; launcher home selection; system/zone/seat checks, arrival observation, backups and storage locks | EXE/DLL/Exploration built against the real SDK and installed. 28 independent runner checks plus identity/profile/localization checks passed; storage previously passed 200 checks. Actual arrival and floor safety await game acceptance |
-| Web panel 0.2.3 | Fleet/storage ledger, catalogue, categories, search and localization refresh | 32 checks passed; ledger only, no physical delivery or native purchase |
-| User acceptance | HTML checklist, persistent marks and fresh-log monitor | First Local9 pass finished; its monitor stopped. Screenshot attachments remain planned |
+| Web panel 0.2.4 | Owner-defined local offers, purchases, single balance, stock/receipts and idempotency | 41 server tests passed including concurrency/rollback/auth; browser fixture purchase verified. Installed with backup; no physical delivery or native prices |
+| User acceptance | HTML checklist, persistent marks and fresh-log monitor | First Local9 pass finished; its monitor stopped. PNG/JPEG attachments and ZIP export added; 6 tests and browser verification passed; separate Local10 home step |
 
 ## Spawn catalogue additions
 
@@ -47,10 +47,7 @@ Russian; launcher strings support EN/RU.
 ## Still research
 
 Native shop purchases/prices, native aUEC debit and physical inventory delivery
-are not integrated. The revised acquisition proposal prevents retries after an
-uncertain delivery and replaces its separate wallet with a profile.credits port.
-This is statically reviewed integration material: the author's tests were not
-independently rerun by us, and server/native delivery integration is pending.
+are not integrated. The acquisition model is integrated with the localhost server: one profile.credits balance, transactions and receipts. Offers are owner-defined for LOCAL_CREDIT; native delivery/aUEC remain unavailable. Uncertain delivery cannot be retried.
 Native ASOP storage/retrieval is not synchronized with SQLite. Ship-bed and medical
 spawning are not ready claims. NPC follow/guard remain disabled; mobiGlas DEFAULT_1
 is unresolved. Networking does not provide shared physics, damage, missions or inventory.
@@ -63,3 +60,7 @@ Home storage/planner and proposed integration patch: Claude. Persistent identity
 dictionary merge, integration, corrections, independent checks and build: Codex.
 Original authorship and GPL-3.0 are retained. No game assets, personal saves,
 tokens, logs or private exchange packets are published.
+
+## Upstream review, October 14
+
+Full review of 62 forks / 164 branches, releases and PRs completed without API errors. No new author guidance in issue121 or PR117/126/127; the changed third-party head equals our exact upstream base. No separate engine-on/getter found in this SDK: power_on sends the same Flight Ready. Automatic engines remain unfinished.
