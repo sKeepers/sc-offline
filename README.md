@@ -2,13 +2,17 @@
 
 ## Текущая разработка / Current development
 
-**На тестовом ПК установлена Local9; последний опубликованный пакет — Local6.**
-Local7–Local9: сохранение карты PU/PU_All, ограниченный ASOP по реестру владения,
-диагностика терминала и питание после посадки. Игровая приёмка ожидается.
+**На тестовом ПК установлен Local10 candidate; последний опубликованный пакет — Local6.**
+Добавлены выбор домашней точки и постоянный ID профиля, русские описания плагинов,
+семь классов кораблей (включая Constellation Mk V Centaurus). Кандидат собран и установлен;
+появление дома и вызов новых моделей ожидают проверки в игре. Посадка и питание одной
+Andromeda подтверждены; двигатели пока включаются вручную через I.
 
-**Local9 is installed on the test PC; Local6 remains the latest published package.**
-Startup/map selection, ledger-filtered ASOP and post-boarding power changes are
-under acceptance testing. Home storage passed independent tests; game integration is pending.
+**Local10 candidate is installed on the test PC; Local6 remains the published package.**
+Home selection/persistent profile identity, plugin descriptions and seven ship classes
+are added. Build and independent checks passed; home arrival and new ship spawning
+await gameplay verification. One Andromeda boarding/power case is confirmed;
+engines still need manual I. Local10 is not yet available as a release download.
 
 [Актуальный прогресс и ограничения](docs/DEVELOPMENT_LOCAL9.ru.md) · [Current progress and limitations](docs/DEVELOPMENT_LOCAL9.en.md)
 

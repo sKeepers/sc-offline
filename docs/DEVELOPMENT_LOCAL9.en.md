@@ -1,61 +1,65 @@
-# Development after Local6: Local7–Local9
+# Development after Local6: Local7–Local10
 
-Updated October 13, 2026. **Published release: 0.7.7 RU / Local6.
-Current installed test build: Local9.** The changes below are not included in
-the downloadable Local6 release. User-confirmed observations are separated from pending acceptance below.
+Updated October 13, 2026. **0.7.7 / Local10 candidate is installed on the test PC.
+Local6 remains the latest published package.** Local7–Local10 changes are not in
+the downloadable Local6 package. Main contains documentation on an earlier code base.
 
-[Русский](DEVELOPMENT_LOCAL9.ru.md) · [Latest published release](https://github.com/sKeepers/sc-offline/releases/tag/ru-local-0.7.7-6)
+[Русский](DEVELOPMENT_LOCAL9.ru.md) · [Published release](https://github.com/sKeepers/sc-offline/releases/tag/ru-local-0.7.7-6)
 
-| Area | Implementation | Validation and limits |
+| Area | Change | Evidence and limits |
 |---|---|---|
-| Startup, Local7 | Bounded readiness waits, retries and arrival observation | 44 independent checks; cross-system travel and actual Stanton startup remain unverified |
-| Map choice, Local8 | PU / PU_All / custom map is preserved; profile saving no longer forces PU_All; PU rejects Pyro/Nyx destinations | Build and profile read/write checks passed; game acceptance pending |
-| ASOP, Local9 | Defaults to classes in the local ownership ledger, preserves stable identifiers; unavailable/empty ledger never exposes the full catalogue | 16 filter checks, protocol checks and 3 C++ HTTP scenarios passed; multiple instances of one class currently produce one row |
-| ASOP performance | Faster GUID lookup and preparation-time diagnostics | Preparation time does not measure the entire terminal UI; in-game stalls still need testing |
-| Power after boarding | Removed early dispatch; Flight Ready waits for a verified pilot seat, dashboard readiness and a 1.5-second delay | Dispatch success does not prove HUD or engines are powered; Andromeda acceptance pending |
-| Web dashboard 0.2.3 | 1102 ship classes, 1590 unique items, 16 categories, localization-aware search/refresh | 32 checks passed; bookkeeping is separate from physical delivery and native purchases |
-| Home location | Prepared validation, storage format, backups and process locking; fixed outer-frame coordinate validation | 200 independent checks passed; UI and game spawn integration are not connected |
-| User acceptance | HTML checklist, persisted observations, local fresh-log monitoring and report export | 5 test scenarios and browser rendering checked; the user confirms gameplay outcomes |
+| Startup/map | Bounded startup wait; preserved PU / PU_All / custom map; destination/map checks | 44 startup checks; user confirmed ordinary spawning in an Orison/Stanton bed with PU/normal |
+| Ship terminal, Local9 | Classes from the local ownership ledger by default; faster GUID lookup and timing logs | Filter/protocol checks passed; user confirmed responsive opening, reopening and ledger changes. Multiple instances of one class currently produce one row |
+| Boarding/power | Fixed two fresh seat-verification errors; request power after pilot confirmation | 17 checks passed. User confirmed pilot boarding and power on one Andromeda after installation. Automatic engines failed; pressing I once enabled them |
+| Plugin tooltips | Wrapped purpose descriptions in the launcher language, using stable plugin IDs | Build/localization checks passed; user confirmed readable Russian descriptions |
+| Spawn catalogue | Seven missing classes added from the installed 4.10.2 DataCore | Records and installed list checked; spawning the new models is not yet gameplay-verified |
+| Home, Local10 candidate | Persistent profile ID; Exploration “Make this home”; launcher home selection; system/zone/seat checks, arrival observation, backups and storage locks | EXE/DLL/Exploration built against the real SDK and installed. 28 independent runner checks plus identity/profile/localization checks passed; storage previously passed 200 checks. Actual arrival and floor safety await game acceptance |
+| Web panel 0.2.3 | Fleet/storage ledger, catalogue, categories, search and localization refresh | 32 checks passed; ledger only, no physical delivery or native purchase |
+| User acceptance | HTML checklist, persistent marks and fresh-log monitor | First Local9 pass finished; its monitor stopped. Screenshot attachments remain planned |
 
-## Remaining research
+## Spawn catalogue additions
 
-Native shop purchases, authoritative game prices, native aUEC deductions and
-physical personal inventory delivery are not connected. Adding a ship to the web
-ledger records ownership rather than performing a native purchase. ASOP storage,
-retrieval and hangar state are not synchronized with SQLite. The M menu retains
-a separate creative catalogue. Home, ship-bed and medical spawns are not complete.
-NPC follow/guard commands remain disabled after a crash; DEFAULT_1 in mobiGlas is
-unresolved. Networking does not provide shared physics, damage, missions or inventory.
-
-## Next acceptance pass
-
-After installing the seat correction, test one Andromeda: actual pilot boarding, HUD and engines. Repeating the already completed Stanton/terminal checks is not required. Local6 remains the published package.
-
-## Provenance
-
-Base: scubamount/sc-offline `85774b784d4cc8eb5dda75148387318486971ef6`,
-sco-core `cd9a686bda4184f1befbdf0b74b503a1565540dd`, SDK 2.0 / ABI 1.1.
-Integration changes and independent checks: Codex. Home-storage proposal: Claude,
-reviewed and corrected by Codex. Upstream attribution and GPL-3.0 are preserved.
-Game assets, personal saves, credentials, logs and private exchange packets are excluded.
+`RSI_Constellation_Mk5_Centaurus`, `RSI_Skylark`,
+`RSI_Constellation_Andromeda_GS`, `RSI_Constellation_Aquila_GS`,
+`RSI_Constellation_Phoenix_GS`, `RSI_Constellation_Taurus_GS`,
+`RSI_Constellation_Taurus_GS_Military`.
+Mk V resolves to the actual Centaurus entity class. A localization label alone
+was not used to infer its identifier. These are additions to our catalogue,
+not a release-date claim. Existing order is preserved; the menu validates registered
+classes at the next launch. The creative M list is separate from owned ships.
 
 ## October 13 acceptance results
 
-The user completed one Local9 pass: ordinary spawning in an Orison/Stanton bed
-with PU/normal, a responsive ship terminal, repeated opening, ownership-ledger
-changes and profile/fleet persistence after exit. This is not full acceptance of
-all ship classes, stations or native vehicle storage.
+The user confirmed Orison/Stanton bed spawning, terminal responsiveness and reopening,
+ledger updates and profile/fleet persistence after exiting. The initial pass found
+power failures on Andromeda, Titan and Sabre. After the seat fix, one Andromeda
+boarding/power case was confirmed. Automatic engine activation remains unfinished;
+manual I works. This does not verify every ship or native hangar storage/retrieval.
 
-Automatic power failed on Andromeda, Avenger Titan and Sabre Peregrine Collector
-Competition; the latter two ships fell to the ground. The user's manual Alt+R,
-then I sequence works. Seat confirmation was absent in the logs for all classes.
+## Next acceptance
 
-Two code defects were corrected: fresh occupant enumeration was skipped while
-its layout was unknown, and the power condition used an empty pre-boarding seat
-snapshot. 17 regression checks passed; the old code failed the test. The full DLL
-build succeeded. The correction is not yet installed or accepted in-game.
-The next test is a single Andromeda.
+Installed Local10 candidate: ordinary Stanton spawn → safe room on the floor →
+Exploration / free-flight tab / “Make this home” → exit → launcher profile / Home,
+PU/Stanton → relaunch. Confirm the actual room and safe footing; dispatch alone
+does not prove arrival. Homes inside ships are refused. New mod messages are currently
+Russian; launcher strings support EN/RU.
 
-The HTML checklist persisted observations and the final report; monitoring for
-that run has stopped. Screenshot attachments are planned for the next checklist.
+## Still research
 
+Native shop purchases/prices, native aUEC debit and physical inventory delivery
+are not integrated. The revised acquisition proposal prevents retries after an
+uncertain delivery and replaces its separate wallet with a profile.credits port.
+This is statically reviewed integration material: the author's tests were not
+independently rerun by us, and server/native delivery integration is pending.
+Native ASOP storage/retrieval is not synchronized with SQLite. Ship-bed and medical
+spawning are not ready claims. NPC follow/guard remain disabled; mobiGlas DEFAULT_1
+is unresolved. Networking does not provide shared physics, damage, missions or inventory.
+
+## Attribution
+
+Upstream `85774b784d4cc8eb5dda75148387318486971ef6`, sco-core
+`cd9a686bda4184f1befbdf0b74b503a1565540dd`, SDK 2.0 / ABI 1.1.
+Home storage/planner and proposed integration patch: Claude. Persistent identity,
+dictionary merge, integration, corrections, independent checks and build: Codex.
+Original authorship and GPL-3.0 are retained. No game assets, personal saves,
+tokens, logs or private exchange packets are published.
