@@ -1,10 +1,10 @@
-# sc-offline RU / Local — Local 4 status
+# sc-offline RU / Local — Local 5 status
 
-[Русская версия](RU_LOCAL_STATUS.md) · [Release](https://github.com/sKeepers/sc-offline/releases/tag/ru-local-0.7.7-4) · [Windows ZIP](https://github.com/sKeepers/sc-offline/releases/download/ru-local-0.7.7-4/sc-offline-0.7.7-ru-local-4-windows-x64.zip) · [Source](https://github.com/sKeepers/sc-offline/tree/codex/release-0.7.7-ru-local-4)
+[Русская версия](RU_LOCAL_STATUS.md) · [Release](https://github.com/sKeepers/sc-offline/releases/tag/ru-local-0.7.7-5) · [Windows ZIP](https://github.com/sKeepers/sc-offline/releases/download/ru-local-0.7.7-5/sc-offline-0.7.7-ru-local-5-windows-x64.zip) · [Source](https://github.com/sKeepers/sc-offline/tree/codex/release-0.7.7-ru-local-5)
 
-Updated: **October 13, 2026**. Published: **0.7.7 RU / Local 4, Windows x64 development pre-release**.
+Updated: **October 13, 2026**. Published: **0.7.7 RU / Local 5, Windows x64 development pre-release**.
 
-Base: v0.7.7 (`1ac5308a65ac0ba7955e4108bd1dc800449cfa69`) plus upstream changes through `85774b784d4cc8eb5dda75148387318486971ef6`. sco-core `cd9a686bda4184f1befbdf0b74b503a1565540dd`, SDK 2.0 / ABI 1.1. Local source commit `9ae147c574345a8593dbe28457d64a71c3318b02`.
+Base: v0.7.7 (`1ac5308a65ac0ba7955e4108bd1dc800449cfa69`) plus upstream changes through `85774b784d4cc8eb5dda75148387318486971ef6`. sco-core `cd9a686bda4184f1befbdf0b74b503a1565540dd`, SDK 2.0 / ABI 1.1. Local source branch `codex/release-0.7.7-ru-local-5`.
 
 ## Included features
 
@@ -37,4 +37,11 @@ Local checks passed: Release EXE/DLL build, native localization tests, SDK gate/
 
 The M menu/local plugins/dashboard remain Russian; a shared additive sco-core localization C service is a later phase. A dedicated world simulator, physical shared inventory/combat, medical/ship-bed spawning and reliable companion following are not implemented.
 
-Main contains documentation on the earlier code base. Local4 implementation is on codex/release-0.7.7-ru-local-4, tagged ru-local-0.7.7-4. Development assisted by Codex; some research models assisted by Claude. ChrisWareOffline/scubamount attribution and licenses are retained.
+Main contains documentation on the earlier code base. Local5 implementation is on codex/release-0.7.7-ru-local-5, tagged ru-local-0.7.7-5. Development assisted by Codex; some research models assisted by Claude. ChrisWareOffline/scubamount attribution and licenses are retained.
+
+
+## Local 5 correction / Исправление Local 5
+
+Исправлены регистрация loadout команд и вкладки персонажей, очистка handles и ошибки локализации. Подробности: [RU](../LOCAL5-FIXES.ru.md) / [EN](../LOCAL5-FIXES.en.md). В отличие от исходной Local4, новые проверки используют и настоящий sco-core host:13/0, с заглушками игровых функций и UI. В игре вкладки ещё не подтверждены. PR127 насадки не включены.
+
+Corrects loadout command/tab admission, owner cleanup and localization. Real sco-core host checks13/0, with stubbed game/UI callbacks. In-game acceptance is pending; PR127 attachments are not included. Local4 remains available as the preceding release.

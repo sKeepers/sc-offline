@@ -2,9 +2,9 @@
 
 Локальная редакция [scubamount/sc-offline](https://github.com/scubamount/sc-offline) для автономной игры в Star Citizen. Основана на ChrisWareOffline; авторство и лицензия GPL-3.0 сохранены.
 
-**Опубликована сборка 0.7.7 RU / Local 4 — предварительный релиз для Windows x64.**
+**Опубликована сборка 0.7.7 RU / Local 5 — предварительный релиз для Windows x64.**
 
-[Скачать Windows ZIP](https://github.com/sKeepers/sc-offline/releases/download/ru-local-0.7.7-4/sc-offline-0.7.7-ru-local-4-windows-x64.zip) · [Releases](https://github.com/sKeepers/sc-offline/releases/tag/ru-local-0.7.7-4) · [Описание на русском](docs/RU_LOCAL_STATUS.md) · [English status](docs/RU_LOCAL_STATUS.en.md) · [Исходники Local 4](https://github.com/sKeepers/sc-offline/tree/codex/release-0.7.7-ru-local-4)
+[Скачать Windows ZIP](https://github.com/sKeepers/sc-offline/releases/download/ru-local-0.7.7-5/sc-offline-0.7.7-ru-local-5-windows-x64.zip) · [Releases](https://github.com/sKeepers/sc-offline/releases/tag/ru-local-0.7.7-5) · [Описание на русском](docs/RU_LOCAL_STATUS.md) · [English status](docs/RU_LOCAL_STATUS.en.md) · [Исходники Local 5](https://github.com/sKeepers/sc-offline/tree/codex/release-0.7.7-ru-local-5)
 
 ## Русский
 
@@ -22,7 +22,7 @@
 
 ## English
 
-**0.7.7 RU / Local 4 is available as a Windows x64 development pre-release.**
+**0.7.7 RU / Local 5 is available as a Windows x64 development pre-release.**
 
 - Flat UTF-8 launcher catalogs: 306 strings, Russian/English UI, compiled English fallback.
 - Automatic discovery of installed game localization and readable ship/item names; partial-name and identifier search.
@@ -38,12 +38,21 @@ No saves, credentials, game resources or game translations are distributed. Back
 
 ## Source / Исходники
 
-Local 4 source commit: [`9ae147c574345a8593dbe28457d64a71c3318b02`](https://github.com/sKeepers/sc-offline/commit/9ae147c574345a8593dbe28457d64a71c3318b02).
+Local 5 source branch: [`codex/release-0.7.7-ru-local-5`](https://github.com/sKeepers/sc-offline/tree/codex/release-0.7.7-ru-local-5).
 
-**Main сейчас содержит обновлённую документацию поверх прежней основы. Для исходников Local 4 используйте указанную ветку/тег или complete-source ZIP в релизе.**
+**Main сейчас содержит обновлённую документацию поверх прежней основы. Для исходников Local 5 используйте указанную ветку/тег или complete-source ZIP в релизе.**
 
-**Main currently contains updated documentation on the earlier code base. Use the release branch/tag or the attached complete-source ZIP for Local 4 code.**
+**Main currently contains updated documentation on the earlier code base. Use the release branch/tag or the attached complete-source ZIP for Local 5 code.**
 
 The complete-source ZIP includes sco-core and third-party licenses; GitHub's automatic source ZIP omits submodules. SHA256SUMS.txt covers the two release ZIPs. Local build/autonomous checks passed; they are separate from gameplay validation.
 
 [Оригинальный проект / Upstream](https://github.com/scubamount/sc-offline) · [Лицензия / License](LICENSE)
+
+
+## Local 5 correction / Исправление Local 5
+
+Исправлены регистрация loadout команд и вкладки персонажей, очистка handles и ошибки локализации. Подробности: [RU](LOCAL5-FIXES.ru.md) / [EN](LOCAL5-FIXES.en.md). В отличие от исходной Local4, новые проверки используют и настоящий sco-core host:13/0, с заглушками игровых функций и UI. В игре вкладки ещё не подтверждены. PR127 насадки не включены.
+
+Corrects loadout command/tab admission, owner cleanup and localization. Real sco-core host checks13/0, with stubbed game/UI callbacks. In-game acceptance is pending; PR127 attachments are not included. Local4 remains available as the preceding release.
+
+Local5 implementation commit / Код Local5: [56a17733eef6031ea843a64995b7e005cf74eae2](https://github.com/sKeepers/sc-offline/commit/56a17733eef6031ea843a64995b7e005cf74eae2).
