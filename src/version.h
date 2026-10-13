@@ -7,5 +7,5 @@
 #define SCO_VERSION_MINOR 7
 #define SCO_VERSION_PATCH 7
 #define SCO_VERSION  "0.7.7"
-#define SCO_TITLE    "sc-offline v" SCO_VERSION " RU / Local 4 (SDK 2.0)"
+#define SCO_TITLE    "sc-offline v" SCO_VERSION " RU / Local 5 (SDK 2.0)"
 #define SCO_BASED_ON "based on ChrisWareOffline 0.9.0-rc1"

@@ -2,7 +2,8 @@
 import argparse,json,re
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-FMT=re.compile(r'%(?:[-+ #0]*\d*(?:\.\d+)?(?:hh|ll|I64|[hljztL])?[diuoxXfFeEgGaAcspn]|%)')
+FMT=re.compile(r'%(?:[-+ #0]*[0-9]*(?:\.[0-9]+)?(?:hh|ll|I64|[hljztL])?[diuoxXfFeEgGaAcspn]|%)')
+WS=' \t\r\n'  # Match C++ Trim, rather than Unicode whitespace.
 def formats(value):
  out=[];at=0
  while (at:=value.find('%',at))>=0:
@@ -12,15 +13,19 @@ def formats(value):
  return out
 def decode(s):
  def sub(m):
-  if m[1] not in 'nrt\\s':raise ValueError('invalid catalog escape')
+  if not m[1] or m[1] not in 'nrt\\s':raise ValueError('invalid catalog escape')
   return {'n':'\n','r':'\r','t':'\t','\\':'\\','s':' '}[m[1]]
- return re.sub(r'\\(.)',sub,s)
+ return re.sub(r'\\(.?)',sub,s)
 def read(path):
- out={}
- for line in path.read_text(encoding='utf-8-sig').splitlines():
-  if not line.strip() or line.lstrip()[0] in '#;':continue
+ out={};raw=path.read_bytes()
+ if len(raw)>2*1024*1024 or b'\0' in raw:raise ValueError(f'{path.name}: oversized or NUL-containing catalog')
+ for line in raw.decode('utf-8-sig').split('\n'):
+  line=line.removesuffix('\r')
+  if not line.strip(WS) or line.lstrip(WS)[0] in '#;':continue
   if '=' not in line:raise ValueError(f'{path.name}: missing =')
-  key,value=line.split('=',1);key=key.strip();value=decode(value.strip())
+  key,value=line.split('=',1);key=key.strip(WS);value=value.strip(WS)
+  if len(key.encode('utf-8'))>160 or len(value.encode('utf-8'))>32768:raise ValueError(f'{path.name}: key/value exceeds runtime limit')
+  value=decode(value)
   if not re.fullmatch(r'[a-zA-Z0-9_.-]+',key) or key in out or not value:raise ValueError(f'{path.name}: invalid/duplicate/empty key {key}')
   out[key]=value
  return out

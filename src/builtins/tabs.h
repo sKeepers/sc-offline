@@ -19,7 +19,7 @@ constexpr int32_t kTabPlayer   = 100;   // loadout.player
 constexpr int32_t kTabTravel   = 200;   // quantum.travel
 constexpr int32_t kTabVehicles = 300;   // spawn.vehicles
 constexpr int32_t kTabCrew     = 400;   // crew.crew
-constexpr int32_t kTabNpcs     = 500;   // npc.npcs
+constexpr int32_t kTabNpcs     = 500;   // loadout.npcs (local host UI)
 constexpr int32_t kTabBuild    = 600;   // build.build
 constexpr int32_t kTabMultiplayer = 650;   // multiplayer.session
 constexpr int32_t kTabSq42     = 700;   // loadout.sq42
@@ -29,6 +29,7 @@ constexpr int32_t kTabVoxel     = 810;  // voxel_bridge.voxel (optional bridge, 
 // Draw functions (sco_ui_draw_fn), in <feature>_ui.cpp.
 void DrawPlayerTab(void* frame, void* ctx);     // loadout_ui.cpp
 void RegisterPlayerTab(const sco_api* api, sco_plugin* self);   // loadout_ui.cpp: the Player tab, with the invoke handle below
+void ResetPlayerTab();
 // The Player and Vehicles tabs' cheat toggles run the optional creative plugin's commands
 // (data/plugins/creative) through sco_api's invoke; the reply lands in the status strip, and a
 // refusal (the plugin is off, or its game.creative capability is missing) puts *flag back.

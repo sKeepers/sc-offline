@@ -407,7 +407,7 @@ sco_result CrewLoad(const sco_api* api, sco_plugin* self) {
     if (r == SCO_OK) r = RegisterBuiltinCommand(api, self, "game.vehicles.flight_ready", "crew.power_on", "Включить питание",
         "Sends the game's Flight Ready event to the target ship", PowerOn);
     if (r == SCO_OK) r = api->subscribe(self, "tick", OnTick, nullptr);
-    if (r != SCO_OK) return r;   // the host releases what was registered
+    if (r != SCO_OK) { g_api = nullptr; g_self = nullptr; return r; }   // host releases registrations
     // Its page of the menu (and keys), through sco.ui; the menu shell draws it (tabs.h).
     RegisterBuiltinTab(api, self, "crew.crew", "Экипаж", kTabCrew, DrawCrewTab);
     g_ticking = true;
@@ -423,6 +423,8 @@ void CrewUnload() {
     g_veh = nullptr;
     g_act = nullptr;
     g_sp = nullptr;
+    g_api = nullptr;
+    g_self = nullptr;
 }
 
 }  // namespace

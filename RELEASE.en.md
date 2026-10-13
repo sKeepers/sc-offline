@@ -1,4 +1,4 @@
-# 0.7.7 RU / Local 4 — development pre-release
+# 0.7.7 RU / Local 5 — development pre-release
 
 Windows x64; bring your own installed game. The optional localhost dashboard needs Python 3.11+ with the standard library only.
 
@@ -15,3 +15,6 @@ Multiplayer provides pose exchange and limited visual co-presence, not shared ph
 Build and autonomous tests passed; the new localization has not been visually verified and this exact bundle has not received a complete in-game acceptance run. Original updates do not automatically replace local features. Read docs/launcher.md for configurable temporary firewall/EAC-related system changes and normal cleanup before online play.
 
 The localhost ledger is not a dedicated game simulation server. Inventory accounting does not mean physical items exist in game. This archive includes the upstream project's OfflineDB template, not personal player data. No credentials, saves, logs, databases, game translations or game assets are included.
+
+
+Local5 correction details / Исправления Local5: [Русский](LOCAL5-FIXES.ru.md) · [English](LOCAL5-FIXES.en.md).

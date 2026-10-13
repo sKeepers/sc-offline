@@ -28,8 +28,10 @@ static void InvokeNpcCommand(const char* name, const sco_arg* args, uint32_t nar
 void RegisterLocalCharactersTab(const sco_api* api, sco_plugin* self) {
     g_api = api;
     g_self = self;
-    RegisterBuiltinTab(api, self, "npc.npcs", "Персонажи", kTabNpcs, DrawNpcsTab);
+    RegisterBuiltinTab(api, self, "loadout.npcs", "Персонажи", kTabNpcs, DrawNpcsTab);
 }
+
+void ResetLocalCharactersTab() { g_api = nullptr; g_self = nullptr; }
 
 // --- NPC picker, shared by the NPCs and Crew tabs -------------------------------------------
 

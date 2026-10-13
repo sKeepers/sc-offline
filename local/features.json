@@ -3,7 +3,7 @@
   "upstream_tag": "v0.7.7",
   "upstream_commit": "85774b784d4cc8eb5dda75148387318486971ef6",
   "sco_core_commit": "cd9a686bda4184f1befbdf0b74b503a1565540dd",
-  "local_revision": 4,
+  "local_revision": 5,
   "upstream_binary_update": "notify_only",
   "features": [
     {

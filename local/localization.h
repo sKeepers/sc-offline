@@ -28,13 +28,13 @@ inline bool Utf8(const std::string& s) {
         if(v<min||v>0x10FFFF||(v>=0xD800&&v<=0xDFFF))return false;
     }return true;
 }
-inline bool Read(const std::filesystem::path& file,std::string& bytes,size_t max=2*1024*1024) {
+inline bool Read(const std::filesystem::path& file,std::string& bytes,size_t max=2*1024*1024,bool requireUtf8=true) {
     std::error_code ec;auto size=std::filesystem::file_size(file,ec);if(ec||size>max)return false;
     std::ifstream f(file,std::ios::binary);if(!f)return false;
     bytes.clear();char chunk[4096];
     while(f){f.read(chunk,sizeof(chunk));auto n=(size_t)f.gcount();if(n>max-bytes.size())return false;bytes.append(chunk,n);}
     if(bytes.size()>=3&&bytes.compare(0,3,"\xEF\xBB\xBF")==0)bytes.erase(0,3);
-    return !f.bad()&&bytes.size()<=max&&Utf8(bytes);
+    return !f.bad()&&bytes.size()<=max&&(!requireUtf8||Utf8(bytes));
 }
 inline std::map<std::string,std::string> Parse(const std::string& bytes,bool escapes) {
     std::map<std::string,std::string> out;std::istringstream input(bytes);std::string line;
@@ -76,17 +76,21 @@ inline std::string LanguageCode(const std::string& slot,const std::string& label
 }
 inline Selection Discover(const std::filesystem::path& root,const std::string& requested,const std::string& overrideSlot,const std::string& osCode) {
     Selection out;std::string bytes;std::map<std::string,std::string> labels;
+    if(root.empty()){auto code=requested.empty()||requested=="auto"?osCode:requested;out.ui=SafeCode(code)?code:"en";return out;}
     if(Read(root/"data/languages.ini",bytes))labels=Parse(bytes,false);
     auto folder=root/"data/Localization";std::error_code ec;
     for(std::filesystem::directory_iterator i(folder,ec),end;!ec&&i!=end;i.increment(ec)){
-        auto slot=i->path().filename().string();auto global=i->path()/"global.ini";
+        const auto name=i->path().filename().wstring();
+        if(!std::all_of(name.begin(),name.end(),[](wchar_t c){return c>0&&c<128;}))continue;
+        std::string slot;for(wchar_t c:name)slot+=static_cast<char>(c);
+        auto global=i->path()/"global.ini";
         if(!i->is_directory(ec)||!SafeCode(slot)||!std::filesystem::is_regular_file(global,ec))continue;
         auto label=labels.count(slot)?labels[slot]:slot;
         out.available.push_back({slot,label,LanguageCode(slot,label),global});
     }
     std::sort(out.available.begin(),out.available.end(),[](auto& a,auto& b){return a.slot<b.slot;});
     std::string active;
-    if(Read(root/"user.cfg",bytes)){auto settings=Parse(bytes,false);active=settings["g_language"];if(active.size()>1&&active.front()=='"'&&active.back()=='"')active=active.substr(1,active.size()-2);}
+    if(Read(root/"user.cfg",bytes,2*1024*1024,false)){auto settings=Parse(bytes,false);active=settings["g_language"];if(active.size()>1&&active.front()=='"'&&active.back()=='"')active=active.substr(1,active.size()-2);}
     auto findSlot=[&](const std::string& slot)->const Language*{for(auto& l:out.available)if(l.slot==slot)return &l;return nullptr;};
     const Language* selected=overrideSlot.empty()||overrideSlot=="auto"?nullptr:findSlot(overrideSlot);
     bool autoUi=requested.empty()||requested=="auto";
@@ -101,18 +105,31 @@ inline std::wstring Wide(const std::string& s){int n=MultiByteToWideChar(CP_UTF8
 #else
 inline std::wstring Wide(const std::string& s){return std::wstring(s.begin(),s.end());}
 #endif
-struct Entry {std::string text,ui;std::wstring wide;};
+// Catalogs are immutable after Seal; each pre-Seal Load starts from compiled English.
+struct Entry {std::string base,text,ui;std::wstring wide;};
 class Catalog {
     std::map<std::string,Entry> entries;
+    bool sealed=false;
+    static void Set(const std::string& key,Entry& entry,const std::string& text){
+        entry.text=text;entry.wide=Wide(text);auto p=text.find("##");
+        entry.ui=(p==text.npos?text:text.substr(0,p))+"###"+key;
+    }
 public:
-    void Add(const std::string& key,const std::string& english){entries[key]={english,{},Wide(english)};}
-    size_t Load(const std::filesystem::path& file){std::string bytes;if(!Read(file,bytes))return 0;size_t count=0;
-        for(auto& [key,value]:Parse(bytes,true)){auto it=entries.find(key);if(it!=entries.end()&&Compatible(it->second.text,value)){it->second.text=value;it->second.wide=Wide(value);++count;}}return count;}
-    void Seal(){for(auto& [key,e]:entries){auto p=e.text.find("##");e.ui=p==e.text.npos?e.text+"###"+key:e.text.substr(0,p)+"###"+key;}}
+    void Add(const std::string& key,const std::string& english){if(sealed)return;auto& entry=entries[key];entry.base=english;Set(key,entry,english);}
+    size_t Load(const std::filesystem::path& file){
+        if(sealed)return 0;
+        for(auto& [key,entry]:entries)Set(key,entry,entry.base);
+        std::string bytes;if(!Read(file,bytes))return 0;size_t count=0;
+        for(auto& [key,value]:Parse(bytes,true)){auto it=entries.find(key);if(it!=entries.end()&&Compatible(it->second.base,value)){Set(key,it->second,value);++count;}}
+        return count;
+    }
+    void Seal(){sealed=true;}
     const char* Text(const char* key)const {auto i=entries.find(key);return i==entries.end()?key:i->second.text.c_str();}
     const char* UI(const char* key)const {auto i=entries.find(key);return i==entries.end()?key:i->second.ui.c_str();}
     const wchar_t* W(const char* key)const {auto i=entries.find(key);return i==entries.end()?L"":i->second.wide.c_str();}
-    const char* Stable(const char* text)const {for(auto& [key,e]:entries)if(e.text==text)return key.c_str();return text;}
+    // Pointer identity only: equal translated labels may belong to different keys.
+    // Callers that copy labels must retain and supply their key explicitly.
+    const char* Stable(const char* text)const {for(auto& [key,entry]:entries)if(text==entry.text.c_str()||text==entry.ui.c_str())return key.c_str();return text;}
 };
 inline Catalog catalog;
 inline Selection selection;

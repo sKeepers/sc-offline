@@ -24,6 +24,9 @@ void RegisterPlayerTab(const sco_api* api, sco_plugin* self) {
     RegisterBuiltinTab(api, self, "loadout.player", "Игрок", kTabPlayer, DrawPlayerTab);
 }
 
+// Borrowed owner handles must not outlive the loadout plugin.
+void ResetPlayerTab() { g_api = nullptr; g_self = nullptr; }
+
 // The command's reply in the status strip (which also logs it). A refusal puts the checkbox back; a
 // missing command means the creative plugin isn't loaded. SCO_FAILED (the command ran and failed)
 // shows the command's own reply; SCO_UNAVAILABLE means the capability isn't on this build.

@@ -2505,13 +2505,13 @@ enum Icon { kIcoPlay, kIcoInstall, kIcoStatus, kIcoUpdate, kIcoHome, kIcoOutput,
             kIcoPad, kIcoShield, kIcoBolt, kIcoCheck, kIcoMark, kIcoServer, kIcoUsers, kIcoMods, kIcoSearch };
 
 // The home page's list: each row runs `sc-offline.exe <cmd>` as a hidden child (see RunCommand).
-struct GuiCommand { const char* label; const wchar_t* cmd; Action act; Icon icon; };
+struct GuiCommand { const char* label; const wchar_t* cmd; Action act; Icon icon; const char* key; };
 static GuiCommand kGuiCommands[] = {
-    { LocalI18n::T("launcher.play.436e61016e"), L"play", kActPlay, kIcoPlay },
-    { LocalI18n::T("launcher.status.920e413c7d"), L"status", kActStatus, kIcoStatus },
-    { LocalI18n::T("launcher.update.c1c1009d3f"), L"update", kActUpdate, kIcoUpdate },
-    { LocalI18n::T("launcher.install.569ca49f4a"), L"install", kActInstall, kIcoInstall },
-    { LocalI18n::T("launcher.uninstall.fe19952885"), L"uninstall", kActUninstall, kIcoShield },
+    { "launcher.play.436e61016e", L"play", kActPlay, kIcoPlay, "launcher.play.436e61016e" },
+    { "launcher.status.920e413c7d", L"status", kActStatus, kIcoStatus, "launcher.status.920e413c7d" },
+    { "launcher.update.c1c1009d3f", L"update", kActUpdate, kIcoUpdate, "launcher.update.c1c1009d3f" },
+    { "launcher.install.569ca49f4a", L"install", kActInstall, kIcoInstall, "launcher.install.569ca49f4a" },
+    { "launcher.uninstall.fe19952885", L"uninstall", kActUninstall, kIcoShield, "launcher.uninstall.fe19952885" },
 };
 static const int kGuiCommandCount = int(ARRAYSIZE(kGuiCommands));
 
@@ -2914,9 +2914,9 @@ static float UiCard(ImVec2 lo, ImVec2 hi, Icon icon, const char* title) {
 
 enum Look { kAction, kPlain, kQuiet };
 
-static bool UiButton(const char* label, ImVec2 pos, ImVec2 size, Look look, bool enabled = true, int icon = -1) {
+static bool UiButton(const char* label, ImVec2 pos, ImVec2 size, Look look, bool enabled = true, int icon = -1, const char* key = nullptr) {
     ImGui::SetCursorScreenPos(pos);
-    const char* stable=LocalI18n::catalog.Stable(label);
+    const char* stable=key?key:LocalI18n::catalog.Stable(label);
     const ImGuiID id = ImGui::GetID(stable);
     ImGui::BeginDisabled(!enabled);
     const bool clicked = ImGui::InvisibleButton(stable, size);
@@ -2946,8 +2946,8 @@ static bool UiButton(const char* label, ImVec2 pos, ImVec2 size, Look look, bool
 
 static bool UiRow(const GuiCommand& c, ImVec2 pos, ImVec2 size, bool picked, bool enabled) {
     ImGui::SetCursorScreenPos(pos);
-    const ImGuiID id = ImGui::GetID(LocalI18n::catalog.Stable(c.label));
-    const bool clicked = ImGui::InvisibleButton(LocalI18n::catalog.Stable(c.label), size);
+    const ImGuiID id = ImGui::GetID(c.key);
+    const bool clicked = ImGui::InvisibleButton(c.key, size);
     const float h = Anim(id, ImGui::IsItemHovered() ? 1.0f : 0.0f), on = Anim(id + 1, picked ? 1.0f : 0.0f);
     const float a = enabled ? 1.0f : 0.45f;
     DrawIcon(c.icon, ImVec2(pos.x + Px(22), pos.y + size.y * 0.5f), Px(7), Col(Fade(Mix(Mix(kUiTextFaint, kUiTextDim, h), kUiAccent, on), a)));
@@ -3033,7 +3033,7 @@ static void DrawControls(float W) {
     const float sx = W - Px(10) - 4 * s - Px(8), tw = Px(100), tx = sx - Px(8) - tw;
     g.controlsX = tx - Px(4);
     Label(ImVec2(Px(kUiSideW) + Px(18), (Px(kUiTop) - ImGui::GetFontSize()) * 0.5f),
-          kUiTextBody, (std::string("sc-offline v")+SCO_VERSION+" / Local 4 ["+LocalI18n::activeUI+"]").c_str());
+          kUiTextBody, (std::string("sc-offline v")+SCO_VERSION+" / Local 5 ["+LocalI18n::activeUI+"]").c_str());
     {   // Discord status toggle: the Discord plugin's `disabled` marker; the next Play uses it.
         const ImVec2 lo(tx, y);
         ImGui::SetCursorScreenPos(lo);
@@ -3114,12 +3114,12 @@ static void DrawHome(float x0, float y0, float x1) {
         if (UiButton(LocalI18n::T("launcher.none.dc937b5989"), ImVec2(rx + Px(14) + hw + Px(10), ay), ImVec2(hw, Px(42)), kPlain)) g.action = kActNo;
     } else if (!g.running.empty()) {
         const std::string label = LocalI18n::T("launcher.running.87de7163ff") + Narrow(g.running) + "##act";
-        UiButton(label.c_str(), ImVec2(rx + Px(14), ay), ImVec2(bw, Px(42)), kAction, false);
+        UiButton(label.c_str(), ImVec2(rx + Px(14), ay), ImVec2(bw, Px(42)), kAction, false, -1, "##selected_action");
         UiSpinner(ImVec2(rx + Px(34), ay + Px(21)), Px(7), Px(2.0f), kUiActionText);
     } else {
         const GuiCommand& c = kGuiCommands[g.sel];
         const std::string label = std::string(c.label) + "##act";
-        if (UiButton(label.c_str(), ImVec2(rx + Px(14), ay), ImVec2(bw, Px(42)), kAction, CommandEnabled(c.act), c.icon)) g.action = c.act;
+        if (UiButton(label.c_str(), ImVec2(rx + Px(14), ay), ImVec2(bw, Px(42)), kAction, CommandEnabled(c.act), c.icon, "##selected_action")) g.action = c.act;
     }
     if (UiButton(LocalI18n::T("launcher.free_flight_profile.bf4ec49956"), ImVec2(x0,aBot+Px(12)), ImVec2(lw,Px(36)),
                  kPlain,g.running.empty() && !g.gameUp)) g.action=kActFlightProfile;
@@ -4112,7 +4112,7 @@ static int RunGui() {
     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW); wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
     wc.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
     RegisterClassW(&wc);
-    const wstring title = L"sc-offline v" + Wide(SCO_VERSION) + L" / Local 4 (SDK 2.0)" + L" [" + LocalI18n::Wide(LocalI18n::activeUI) + L"]";
+    const wstring title = L"sc-offline v" + Wide(SCO_VERSION) + L" / Local 5 (SDK 2.0)" + L" [" + LocalI18n::Wide(LocalI18n::activeUI) + L"]";
     HWND wnd = CreateWindowExW(0, L"sc-offline", title.c_str(), WS_POPUP | WS_THICKFRAME | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
                                g.splash.left, g.splash.top, sw, sh, nullptr, nullptr, wc.hInstance, nullptr);
     if (!wnd) return kExitError;
@@ -4196,7 +4196,7 @@ static void InitLocalization(int argc,wchar_t** argv) {
     translatedKeys=catalog.Load(std::filesystem::path(ExeDir())/"localization/launcher"/(selection.ui+".ini"));
     activeUI=translatedKeys?selection.ui:"en";
     catalog.Seal();
-    for(auto& command:kGuiCommands)command.label=catalog.Text(command.label);
+    for(auto& command:kGuiCommands)command.label=catalog.Text(command.key);
 }
 
 int wmain(int argc, wchar_t** argv) {

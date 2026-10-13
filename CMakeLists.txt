@@ -30,6 +30,17 @@ add_executable(localization-test EXCLUDE_FROM_ALL tools/localization_test.cpp)
 target_compile_features(localization-test PRIVATE cxx_std_17)
 target_compile_options(localization-test PRIVATE /utf-8 /UNDEBUG)
 
+add_executable(localization-hotfix-test EXCLUDE_FROM_ALL tools/localization_hotfix_test.cpp)
+target_compile_features(localization-hotfix-test PRIVATE cxx_std_17)
+target_compile_options(localization-hotfix-test PRIVATE /utf-8 /W4 /WX)
+
+add_executable(loadout-host-test EXCLUDE_FROM_ALL tools/loadout_host_test.cpp src/builtins/loadout_plugin.cpp)
+target_compile_features(loadout-host-test PRIVATE cxx_std_17)
+target_compile_options(loadout-host-test PRIVATE /utf-8)
+target_include_directories(loadout-host-test PRIVATE external/sco-core/include)
+target_link_libraries(loadout-host-test PRIVATE sco_ui sco_plugins)
+set_property(TARGET loadout-host-test PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 # Small native test of the actual save validator and checkpoint rules, without the game.
 add_executable(exploration-state-test EXCLUDE_FROM_ALL tools/exploration_state_test.cpp)
 add_executable(list-label-test EXCLUDE_FROM_ALL tools/list_label_test.cpp)
