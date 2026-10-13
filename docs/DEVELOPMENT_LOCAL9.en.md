@@ -2,7 +2,7 @@
 
 Updated October 13, 2026. **Published release: 0.7.7 RU / Local6.
 Current installed test build: Local9.** The changes below are not included in
-the downloadable Local6 release and are not claimed as accepted in-game.
+the downloadable Local6 release. User-confirmed observations are separated from pending acceptance below.
 
 [Русский](DEVELOPMENT_LOCAL9.ru.md) · [Latest published release](https://github.com/sKeepers/sc-offline/releases/tag/ru-local-0.7.7-6)
 
@@ -29,13 +29,7 @@ unresolved. Networking does not provide shared physics, damage, missions or inve
 
 ## Next acceptance pass
 
-1. Save PU and ordinary spawning, reopen the profile, then check the actual system and location.
-2. Compare ASOP with the ownership ledger and measure initial/repeated opening times.
-3. Spawn Andromeda through M with pilot boarding and power enabled; check HUD and engines separately after waiting up to one minute.
-4. Verify profile and ledger persistence after a normal exit.
-
-Build and synthetic checks cannot replace those observations. A newer package
-will have a separate release entry; the Local6 download above remains current.
+After installing the seat correction, test one Andromeda: actual pilot boarding, HUD and engines. Repeating the already completed Stanton/terminal checks is not required. Local6 remains the published package.
 
 ## Provenance
 
@@ -44,3 +38,24 @@ sco-core `cd9a686bda4184f1befbdf0b74b503a1565540dd`, SDK 2.0 / ABI 1.1.
 Integration changes and independent checks: Codex. Home-storage proposal: Claude,
 reviewed and corrected by Codex. Upstream attribution and GPL-3.0 are preserved.
 Game assets, personal saves, credentials, logs and private exchange packets are excluded.
+
+## October 13 acceptance results
+
+The user completed one Local9 pass: ordinary spawning in an Orison/Stanton bed
+with PU/normal, a responsive ship terminal, repeated opening, ownership-ledger
+changes and profile/fleet persistence after exit. This is not full acceptance of
+all ship classes, stations or native vehicle storage.
+
+Automatic power failed on Andromeda, Avenger Titan and Sabre Peregrine Collector
+Competition; the latter two ships fell to the ground. The user's manual Alt+R,
+then I sequence works. Seat confirmation was absent in the logs for all classes.
+
+Two code defects were corrected: fresh occupant enumeration was skipped while
+its layout was unknown, and the power condition used an empty pre-boarding seat
+snapshot. 17 regression checks passed; the old code failed the test. The full DLL
+build succeeded. The correction is not yet installed or accepted in-game.
+The next test is a single Andromeda.
+
+The HTML checklist persisted observations and the final report; monitoring for
+that run has stopped. Screenshot attachments are planned for the next checklist.
+

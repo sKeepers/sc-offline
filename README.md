@@ -68,3 +68,5 @@ The complete-source ZIP includes sco-core and third-party licenses; GitHub's aut
 106weapon attachments/multitool parts, searchable readable lists and XML preset support.1526independent checks pass; game acceptance is pending. The complete-source ZIP now includes two missing bridge test files and was checked by configuring CMake after extraction.
 
 [План работ](docs/IMPLEMENTATION_PLAN.ru.md) · [Local6 source commit](https://github.com/sKeepers/sc-offline/commit/5cbd556677625889d90aec2d773e9ccb9b80f9ed).
+
+[Краткий HTML-отчёт об отличиях](docs/LOCAL_COMPARISON.ru.html). Результаты игровой проверки и статус исправления автопитания: [RU](docs/DEVELOPMENT_LOCAL9.ru.md#результаты-проверки-13-октября) / [EN](docs/DEVELOPMENT_LOCAL9.en.md#october-13-acceptance-results).

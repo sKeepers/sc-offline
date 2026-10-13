@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Наша сборка sc-offline — отличия от оригинала</title>
+<style>
+:root{--ink:#18283d;--muted:#53647b;--line:#dbe4ee;--blue:#165e9d}*{box-sizing:border-box}
+body{margin:0;background:#edf2f7;color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1000px;margin:32px auto;background:white;padding:36px 40px;border-radius:18px;box-shadow:0 8px 35px #233c5b10}
+.eyebrow{font-size:12px;letter-spacing:.1em;color:var(--blue);text-transform:uppercase}h1{font-size:32px;line-height:1.2;margin:10px 0 14px}h2{font-size:21px;margin:26px 0 12px}p{margin:10px 0}.muted{color:var(--muted)}
+.strip{background:#eef6ff;border-left:4px solid var(--blue);padding:14px 18px;margin:20px 0}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid var(--line)}th{background:#f4f7fb;font-size:12px;color:var(--muted);text-transform:uppercase}td:first-child{font-weight:650;width:20%}td:nth-child(2){width:29%}.good{color:#17714e}.pending{color:#965914}ul{padding-left:21px}li{margin:7px 0}a{color:var(--blue)}footer{border-top:1px solid var(--line);margin-top:24px;padding-top:14px;font-size:12px;color:var(--muted)}
+@media(max-width:650px){main{margin:0;padding:24px 16px;border-radius:0}h1{font-size:27px}th,td{padding:9px;min-width:135px}}
+@media print{body{background:white}main{margin:0;padding:12mm;max-width:none;box-shadow:none}h1{font-size:25px}table{font-size:11px}th,td{padding:7px}tr,.strip{break-inside:avoid}a{color:inherit}}
+</style>
+</head>
+<body><main>
+<div class="eyebrow">Краткий отчёт · 13 октября 2026 · sc-offline RU / Local</div>
+<h1>Что мы добавили к оригинальной сборке</h1>
+<p class="muted">Сравнение с оригинальной sc-offline 0.7.7 и принятыми изменениями upstream до <code>85774b7</code>. Основа игры, SDK 2.0 и авторство оригинального проекта сохранены.</p>
+<div class="strip"><strong>На тестовом ПК — Local9. На GitHub опубликована Local6.</strong><br>Более новые изменения и подготовленные исправления ещё не входят в скачиваемый релиз Local6.</div>
+
+<div class="table-wrap"><table>
+<thead><tr><th>Область</th><th>Оригинальная основа</th><th>Наши изменения</th></tr></thead>
+<tbody>
+<tr><td>Русификация</td><td>Тексты интерфейса преимущественно заданы непосредственно в C++.</td><td>Лаунчер переведён на внешние UTF-8 словари EN/RU с английским запасным переводом и выбором языка; меню мода русифицировано. Общая служба локализации плагинов ещё не готова.</td></tr>
+<tr><td>Названия и поиск</td><td>Есть игровые идентификаторы и отдельные подписи; поиск неоднороден.</td><td>Читаемые названия, поиск по части имени и класса; обнаружение локализации в папке игры. Добавлены списки насадок и модулей мультитула, поддержка XML-комплектов.</td></tr>
+<tr><td>Окно меню</td><td>Меню рассчитано на весь экран.</td><td>Размер можно менять; добавлено сохранение размеров и ограничение по доступному экрану. Пользователь подтвердил изменение размера.</td></tr>
+<tr><td>Начало полёта</td><td>Есть выбор карты и механизмы перемещения.</td><td>Расширен профиль, добавлены экспериментальные точки у станций и диагностика прибытия. Выбор PU/PU_All сохраняется. <span class="good">Пользователь подтвердил обычный старт в кровати Orison, Stanton.</span></td></tr>
+<tr><td>Корабельный терминал</td><td>В используемом режиме доступен большой каталог кораблей.</td><td>По умолчанию показываются классы из нашего реестра владения. Ускорен поиск, добавлены измерения. <span class="good">Подтверждены работа без подвисаний, повторное открытие и обновление списка.</span></td></tr>
+<tr><td>Локальная веб-панель</td><td>Наша панель учёта не входит в оригинальную сборку.</td><td>Учёт флота и склада, каталог кораблей/предметов, связь реестра с модом; автоматический старт и кнопки запуска/остановки сервиса в лаунчере. Это локальный учёт, а не полноценный игровой сервер.</td></tr>
+<tr><td>Диагностика и обновления</td><td>Есть журналы и проверка обновлений.</td><td>Контроль совместимости местных изменений, резервные копии при установке, подробные журналы проблемных модулей; HTML-чеклист, сохранение результатов и монитор свежих логов. RU/EN-описания и сборка опубликованы на GitHub.</td></tr>
+</tbody></table></div>
+
+<h2>Подготовлено, но ещё не готово в игре</h2>
+<ul>
+<li><strong>Автопитание кораблей:</strong> в Local9 не сработало на Andromeda, Titan и Sabre. Исправлены две ошибки подтверждения кресла; 17 проверок прошли, новая DLL собрана, <span class="pending">установка и игровой тест ожидаются</span>. Ручное Alt+R, затем I сработало у пользователя.</li>
+<li><strong>Домашняя локация:</strong> хранилище с проверками, резервной копией и блокировкой прошло 200 наших тестов. Выбор дома и появление ещё не подключены. Предложения Клауда проверены, замечания возвращены.</li>
+<li><strong>Магазины и личный инвентарь:</strong> есть исследование и модель приобретения для локального учёта. Настоящие покупки, списание игровых aUEC и выдача предметов в карманы ещё не реализованы.</li>
+</ul>
+<h2>Что не заявляем как готовую функцию</h2>
+<p>Следование и охрана компаньона отключены после сбоя. Ограниченный обмен позициями не является полноценным кооперативом: общей физики, урона, миссий и инвентаря нет. Произвольный межсистемный перенос, старт на кровати корабля и медицинская регистрация не подтверждены. Имя DEFAULT_1 в mobiGlas остаётся нерешённым.</p>
+
+<footer>Игровые подтверждения относятся к одному завершённому прогону Local9; тесты и сборка не заменяют проверку в игре. Изменения и независимые проверки — Codex; предложения хранилища дома и модели приобретения — Claude, с ревью Codex. Исходное авторство и GPL-3.0 сохранены.<br>
+<a href="https://github.com/sKeepers/sc-offline">Наш репозиторий</a> · <a href="https://github.com/sKeepers/sc-offline/releases/tag/ru-local-0.7.7-6">Опубликованный релиз Local6</a> · <a href="https://github.com/scubamount/sc-offline">Оригинальный проект</a>
+</footer>
+</main></body></html>
