@@ -1,3 +1,7 @@
+## 2026-10-14 — Local server 0.3.0
+
+Added a locally extracted shop catalog, purchased ship fleet entries, read-only log observations, same-frame cargo route plans and manual refinery timers. 60 server tests passed. DLL/launcher remain Local10; native inventory delivery, full hangar lifecycle, scan decoding and automatic trade remain unavailable. [Scope and limitations](FORK_FEATURES.ru.md).
+
 # sc-offline RU / Local — Local 6 status
 
 > October 13, 2026 update: Local6 remains the published package; Local9 is the installed test build. [New changes, validation and limitations](DEVELOPMENT_LOCAL9.en.md).

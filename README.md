@@ -1,3 +1,5 @@
+> **14.10.2026 — Local server 0.3.0:** local game shop catalog, acquired ships in owned fleet, read-only log monitoring, cargo route plans and refinery timers. [Details and limitations (RU)](docs/FORK_FEATURES.ru.md). Game DLL/launcher remain Local10; no native inventory delivery.
+
 # sc-offline RU / Local
 
 ## Текущая разработка / Current development
