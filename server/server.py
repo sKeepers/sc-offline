@@ -26,7 +26,7 @@ if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-VERSION = '0.3.1'
+VERSION = '0.3.2'
 LIMIT = 64 * 1024
 MAX_CREDITS = 9_000_000_000_000
 # Catalog files: a version younger than CATALOG_SETTLE seconds is shown as "updating" (the last
@@ -144,7 +144,8 @@ class Store:
                     'holdings':[dict(r) for r in db.execute('SELECT * FROM acq_holding WHERE profile_id=1')],
                     'purchases':[json.loads(r[0]) for r in db.execute('SELECT receipt FROM acq_purchase WHERE profile_id=1 ORDER BY rowid DESC LIMIT 100')]}
             for offer in result['offers']:
-                offer['status'] = ('not_authoritative' if not offer['authoritative'] else
+                offer['status'] = ('catalog_changed' if self.stale_catalog_source(offer['source_id']) else
+                                   'not_authoritative' if not offer['authoritative'] else
                                    'unknown_price' if offer['unit_price'] is None else
                                    'unknown_stock' if offer['stock'] is None else
                                    'out_of_stock' if offer['stock'] == 0 else 'available')
@@ -157,6 +158,10 @@ class Store:
             with closing(self.connect()) as src, closing(sqlite3.connect(path)) as dst:
                 src.backup(dst)
             return path.read_bytes()
+
+    def stale_catalog_source(self, source):
+        current = getattr(self.game_catalog, 'digest', None) or '-'
+        return source.startswith('catalog-local-') and source != 'catalog-local-' + current[:12]
 
     def mutate(self, operation, data, key):
         if not isinstance(data, dict):
@@ -213,14 +218,18 @@ class Store:
                     return acq.put_offer(db, data.get('source_id'), data.get('shop_id'), data.get('item_class'), data.get('unit_price'), data.get('stock'), data.get('expected_version'))
                 if op == '/shops/quote':
                     self.fields(data, {'shop_id','item_class'})
-                    return acq.quote(db, text(data,'shop_id'), text(data,'item_class'))
+                    shop, item = text(data,'shop_id'), text(data,'item_class')
+                    result = acq.quote(db, shop, item)
+                    row = db.execute('SELECT source_id FROM acq_offer WHERE shop_id=? AND item_class=?', (shop,item)).fetchone()
+                    if row and self.stale_catalog_source(row[0]):result['status']='catalog_changed'
+                    return result
                 if op == '/shops/purchase':
                     self.need(db, 'locations', text(data,'location_id'))
                     receipt=acq.purchase(db, acq.ServerProfileWallet(), principal, data, key)
                     # Claude 2026-10-14: an offer made from another (or no longer verified) catalog is refused;
                     # its ship/item decision below would use a catalog it was not made from. mutate() rolls back.
                     source=receipt['offer']['source_id']
-                    if source.startswith('catalog-local-') and source!='catalog-local-'+(getattr(self.game_catalog,'digest',None) or '-')[:12]:
+                    if self.stale_catalog_source(source):
                         raise Problem(409,'Каталог игры изменился или недоступен. Подтвердите локальное предложение по текущему каталогу.')
                     candidates=[o for o in self.game_catalog.lookup.values() if o and o['item_class']==data.get('item_class') and o['kind']=='ship']
                     if candidates:

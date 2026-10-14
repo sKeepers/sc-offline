@@ -1,3 +1,5 @@
+> **14.10.2026 — Server 0.3.2:** observer persistence and background panel updates fixed; 81 server tests passed. [Testing guide (RU)](docs/TESTING_SERVER_032.ru.md). Launcher stays Local10.
+
 > **14.10.2026 — Server 0.3.1 installed:** purchase rollback and Windows log rotation fixes; 75 tests passed. Launcher remains Local10. [Testing guide (RU)](docs/TESTING_SERVER_031.ru.md).
 
 > **14.10.2026 — Local server 0.3.0:** local game shop catalog, acquired ships in owned fleet, read-only log monitoring, cargo route plans and refinery timers. [Details and limitations (RU)](docs/FORK_FEATURES.ru.md). Game DLL/launcher remain Local10; no native inventory delivery.

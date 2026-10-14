@@ -22,7 +22,7 @@ def parse_line(line):
         m=re.search(r'Loading level\s+(\w[\w.-]{0,80})',line)
         if m:return {'kind':'level_loading','level':m[1]}
     if 'Log started on' in line:return {'kind':'session_log_started'}
-    if re.search(r'EXCEPTION_ACCESS_VIOLATION|(?<!non-)(?<!non )Fatal Error|Game crash|\[crash\].*(?:exception|code=0x)',line,re.I):return {'kind':'crash_signal','confirmed_crash':False}
+    if re.search(r'EXCEPTION_ACCESS_VIOLATION|(?<!non-)(?<!non )\bFatal Error|Game crash|\[crash\].*(?:exception|code=0x)',line,re.I):return {'kind':'crash_signal','confirmed_crash':False}
     if re.search(r'\b(?:ATC|ASOP)\b',line) and re.search(r'unconfirmed|Unspawned|rejected|unavailable',line,re.I):
         return {'kind':'delivery_problem_signal','confirmed_delivery':False}
     return None
@@ -118,6 +118,7 @@ class LogObserver:
         self.events=deque([e for e in events[-200:] if _valid_event(e)] if isinstance(events,list) else [],maxlen=200)
         self.cursors=dict([(k,v) for k,v in cursors.items() if _valid_cursor(k,v)][:64]) if isinstance(cursors,dict) else {}
         self.lock=threading.Lock();self.stop_event=threading.Event();self.worker=None;self.status={};self.absent=set()
+        self.unsaved=False  # Claude 0.3.1 review: a failed save is retried on the next poll
 
     def poll(self):
         with self.lock:
@@ -163,25 +164,31 @@ class LogObserver:
                     if key not in self.cursors:self.absent.add(key)
                     self.status[key]='журнал недоступен'
                 except OSError:self.status[key]='журнал недоступен'
-            if changed:
+            if changed or self.unsaved:
+                self.unsaved=True
                 self.path.parent.mkdir(parents=True,exist_ok=True)
                 temp=self.path.with_suffix('.tmp')
                 with temp.open('w',encoding='utf-8') as f:
                     json.dump({'cursors':self.cursors,'events':list(self.events)},f,ensure_ascii=False);f.flush();os.fsync(f.fileno())
                 temp.replace(self.path)
+                self.unsaved=False;self.status.pop('monitor',None)
 
     def snapshot(self):
         with self.lock:return {'sources':[{ 'file':Path(p).name,'status':s} for p,s in self.status.items()],
                                'events':list(reversed(self.events)), 'engine_success_confirmed':False,
                                'message':'Совпадение строки журнала не доказывает выдачу, включение двигателей или безопасное появление.'}
 
+    def _guarded_poll(self):
+        # Claude 0.3.1 review: the monitor is optional. A failed save in the first poll
+        # (log-observer.json held open by another process) must not stop the server start.
+        try:self.poll()
+        except Exception:
+            with self.lock:self.status['monitor']='ошибка сохранения монитора'
+
     def start(self):
-        self.poll()
+        self._guarded_poll()
         def run():
-            while not self.stop_event.wait(1):
-                try:self.poll()
-                except Exception:
-                    with self.lock:self.status['monitor']='ошибка сохранения монитора'
+            while not self.stop_event.wait(1):self._guarded_poll()
         self.worker=threading.Thread(target=run,daemon=True,name='local-log-observer');self.worker.start()
 
     def close(self):

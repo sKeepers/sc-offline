@@ -99,6 +99,8 @@ def check_document(doc):
         if not shape:raise ValueError('Invalid offer')
         # An unresolved GUID may have no record path; a present one must be a safe archive path.
         if shape=='provenance' and o['record_path'] is not None and not provenance_path_ok(o['record_path']):raise ValueError('Invalid record path')
+        # Claude review 0.3.1: resolved offers must retain their source record path.
+        if shape=='provenance' and o['record_path'] is None and o['item_class'] is not None:raise ValueError('Missing record path')
         shapes.add(shape)
         if not isinstance(o['guid'],str) or not GUID.fullmatch(o['guid']) or not isinstance(o['kind'],str) or not KIND.fullmatch(o['kind']):raise ValueError('Invalid offer')
         if not isinstance(o['source_file'],str) or not isinstance(o['record_sha256'],str) or not HEX64.fullmatch(o['record_sha256']):raise ValueError('Invalid offer')

@@ -1,3 +1,11 @@
+## 2026-10-14 — Server 0.3.2 installed
+
+Retry failed observer checkpoint writes without preventing startup; refresh visible UI
+while the game has focus; exclude nonfatal spellings from crash signals; require source
+paths for resolved catalog offers. Stale offers are disabled. 81 server tests and six
+synthetic-DOM JS checks passed. Ledger tables and catalog unchanged; schema stays 2.
+Launcher remains Local10. Gameplay acceptance pending. [Testing (RU)](TESTING_SERVER_032.ru.md).
+
 ## 2026-10-14 — Server 0.3.1 installed
 
 Reject stale or unavailable catalog purchases with full rollback; enforce fleet limits,
