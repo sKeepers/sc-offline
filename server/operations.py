@@ -49,7 +49,9 @@ def apply(db,op,data):
         if op.endswith('/delete'):
             db.execute('DELETE FROM tool_entries WHERE id=?',(entry['id'],));return {'deleted':entry['id']}
         if entry['kind']!='refining':raise ValueError('Это не запись переработки.')
-        result=json.loads(entry['payload']);result['status']='user_confirmed';result['confirmed_at']=time.time()
+        result=json.loads(entry['payload'])
+        if result.get('status')=='user_confirmed':raise ValueError('Получение уже отмечено. Повтор не меняет запись.')
+        result['status']='user_confirmed';result['confirmed_at']=time.time()
         db.execute('UPDATE tool_entries SET payload=?,version=version+1 WHERE id=?',(json.dumps(result),entry['id']))
         return {'id':entry['id'],'version':entry['version']+1,**result}
     else:raise ValueError('Неизвестная операция планировщика.')

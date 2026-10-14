@@ -19,13 +19,15 @@ class ServerControlTests(unittest.TestCase):
     def test_start_reuse_stop_restart_preserves_data(self):
         with tempfile.TemporaryDirectory() as tmp:
             folder = Path(tmp)/'server'; folder.mkdir()
+            log_paths=(Path(tmp)/'synthetic-Game.log',Path(tmp)/'synthetic-mod.log')
+            log_paths[0].write_text('fixture only\n',encoding='utf-8')
             for name in run_server.RUNTIME_FILES:
                 shutil.copy2(Path(__file__).parent/name, folder/name)
             with socket.socket() as sock:
                 sock.bind(('127.0.0.1',0)); port = sock.getsockname()[1]
             try:
-                self.assertEqual(run_server.control('--ensure',folder,port),0)
-                self.assertEqual(run_server.control('--ensure',folder,port),0)
+                self.assertEqual(run_server.control('--ensure',folder,port,log_paths=log_paths),0)
+                self.assertEqual(run_server.control('--ensure',folder,port,log_paths=log_paths),0)
                 self.assertEqual(len(list((folder/'server-state').glob('autostart-*.stdout.log'))),1)
                 token = (folder/'server-state'/'api-token.txt').read_text().strip()
                 def request(path,body,auth=token):
@@ -38,7 +40,7 @@ class ServerControlTests(unittest.TestCase):
                 self.assertEqual(request('/api/v1/profile',{'name':'Тестовый пилот'}),200)
                 self.assertEqual(run_server.control('--stop',folder,port),0)
                 self.assertEqual(run_server.control('--stop',folder,port),0)
-                self.assertEqual(run_server.control('--ensure',folder,port),0)
+                self.assertEqual(run_server.control('--ensure',folder,port,log_paths=log_paths),0)
                 self.assertEqual((folder/'server-state'/'api-token.txt').read_text().strip(),token)
                 conn=http.client.HTTPConnection('127.0.0.1',port,timeout=3)
                 conn.request('GET','/api/v1/state',headers={'Authorization':'Bearer '+token})

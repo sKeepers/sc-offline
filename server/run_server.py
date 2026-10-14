@@ -44,7 +44,7 @@ def probe(folder=root, port=18870):
     finally:
         connection.close()
 
-def control(action, folder=root, port=18870):
+def control(action, folder=root, port=18870, *, log_paths=None):
     state = probe(folder, port)
     if state == 'foreign':
         print('Порт занят другим или недоступным сервисом. Его процессы не изменены.')
@@ -71,7 +71,10 @@ def control(action, folder=root, port=18870):
         state_dir = folder/'server-state'; state_dir.mkdir(exist_ok=True)
         stamp = time.time_ns()
         with (state_dir/f'autostart-{stamp}.stdout.log').open('ab') as out, (state_dir/f'autostart-{stamp}.stderr.log').open('ab') as err:
-            _spawned[(str(folder),port)] = subprocess.Popen([sys.executable,'-X','utf8',str(folder/'server.py'),'--port',str(port)],
+            command=[sys.executable,'-X','utf8',str(folder/'server.py'),'--port',str(port)]
+            if log_paths is not None:
+                command += ['--game-log',str(log_paths[0]),'--mod-log',str(log_paths[1])]
+            _spawned[(str(folder),port)] = subprocess.Popen(command,
                 cwd=folder, stdin=subprocess.DEVNULL, stdout=out, stderr=err,
                 creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
     expected = 'down' if action == '--stop' else 'ready'

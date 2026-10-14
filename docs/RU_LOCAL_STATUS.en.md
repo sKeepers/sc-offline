@@ -1,3 +1,13 @@
+## 2026-10-14 — Server 0.3.1 installed
+
+Reject stale or unavailable catalog purchases with full rollback; enforce fleet limits,
+allow Windows log rotation, validate observer checkpoints and oversized lines, retain
+the first refinery confirmation and preserve shop input focus. 75 server tests passed.
+The actual 119-file/6749-offer catalog and all ledger table hashes were preserved.
+Launcher remains 0.7.7 / Local10 candidate. Gameplay acceptance is pending; automatic
+engine start is not implemented. Claude fixes reviewed and integrated by Codex;
+15 independent Codex regressions. [Testing guide (RU)](TESTING_SERVER_031.ru.md).
+
 ## 2026-10-14 — Local server 0.3.0
 
 Added a locally extracted shop catalog, purchased ship fleet entries, read-only log observations, same-frame cargo route plans and manual refinery timers. 60 server tests passed. DLL/launcher remain Local10; native inventory delivery, full hangar lifecycle, scan decoding and automatic trade remain unavailable. [Scope and limitations](FORK_FEATURES.ru.md).

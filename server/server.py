@@ -26,7 +26,7 @@ if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-VERSION = '0.3.0'
+VERSION = '0.3.1'
 LIMIT = 64 * 1024
 MAX_CREDITS = 9_000_000_000_000
 # Catalog files: a version younger than CATALOG_SETTLE seconds is shown as "updating" (the last
@@ -217,6 +217,11 @@ class Store:
                 if op == '/shops/purchase':
                     self.need(db, 'locations', text(data,'location_id'))
                     receipt=acq.purchase(db, acq.ServerProfileWallet(), principal, data, key)
+                    # Claude 2026-10-14: an offer made from another (or no longer verified) catalog is refused;
+                    # its ship/item decision below would use a catalog it was not made from. mutate() rolls back.
+                    source=receipt['offer']['source_id']
+                    if source.startswith('catalog-local-') and source!='catalog-local-'+(getattr(self.game_catalog,'digest',None) or '-')[:12]:
+                        raise Problem(409,'Каталог игры изменился или недоступен. Подтвердите локальное предложение по текущему каталогу.')
                     candidates=[o for o in self.game_catalog.lookup.values() if o and o['item_class']==data.get('item_class') and o['kind']=='ship']
                     if candidates:
                         for _ in range(data['quantity']):
@@ -295,6 +300,8 @@ class Store:
         if op == '/ships':
             loc = text(data, 'location_id')
             self.need(db, 'locations', loc)
+            if db.execute('SELECT COUNT(*) FROM ships').fetchone()[0] >= 256:  # same limit as purchase and bridge
+                raise Problem(409, 'Флот достиг лимита 256 кораблей.')
             identifier = str(uuid.uuid4())
             db.execute('INSERT INTO ships(id,class_name,name,state,location_id) VALUES(?,?,?,\'stored\',?)',
                        (identifier, text(data, 'class_name', 200), text(data, 'name'), loc))
