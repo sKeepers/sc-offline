@@ -209,6 +209,18 @@ class HttpTests(unittest.TestCase):
             self.assertIn(self.request('/api/v1/demo', 'POST', '{}', headers)[0], (401, 403))
         self.assertEqual(self.store.snapshot()['events'], [])
 
+    def test_testing_guide_navigation_without_credentials(self):
+        status,page,headers=self.request('/testing',headers={'Authorization':''})
+        self.assertEqual(status,200)
+        self.assertIn('text/html',headers['Content-Type'])
+        self.assertIn('Проверка игры'.encode(),page)
+        self.assertNotIn(b'a'*64,page)
+        self.assertIn(b'target="_blank"',page)
+        for path in ['/', '/tools']:
+            body=self.request(path)[1]
+            self.assertIn(b'href="/testing"',body)
+        self.assertEqual(self.request('/testing',headers={'Host':'evil.example'})[0],403)
+
     def test_json_validation_and_unknown_route(self):
         for body in ['{bad', '[]', '{"delta":NaN,"reason":"x"}']:
             self.assertEqual(self.request('/api/v1/wallet/adjust', 'POST', body)[0], 400)

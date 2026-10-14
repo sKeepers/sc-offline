@@ -26,7 +26,7 @@ if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-VERSION = '0.3.2'
+VERSION = '0.3.3'
 LIMIT = 64 * 1024
 MAX_CREDITS = 9_000_000_000_000
 # Catalog files: a version younger than CATALOG_SETTLE seconds is shown as "updating" (the last
@@ -450,7 +450,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def handle_request(self, write):
         try:
-            public = not write and self.path in ('/', '/health', '/tools')
+            public = not write and self.path in ('/', '/health', '/tools', '/testing')
             self.guard(not public)
             if not write:
                 if self.path == '/':
@@ -459,6 +459,9 @@ class Handler(BaseHTTPRequestHandler):
                 if self.path == '/tools':
                     page=(Path(__file__).resolve().parent/'tools.html').read_text(encoding='utf-8').replace('__LOCAL_TOKEN__',self.server.token)
                     return self.send(200,page.encode(),'text/html; charset=utf-8')
+                if self.path == '/testing':
+                    page=(Path(__file__).resolve().parent/'testing.html').read_bytes()
+                    return self.send(200,page,'text/html; charset=utf-8')
                 if self.path == '/api/v1/game-catalog':
                     return self.send(200,self.server.store.game_catalog.snapshot())
                 if self.path == '/api/v1/tools':

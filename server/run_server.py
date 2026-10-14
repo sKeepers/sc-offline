@@ -10,7 +10,7 @@ import json
 import socket
 
 root = Path(__file__).resolve().parent
-RUNTIME_FILES = ('server.py','acquisition.py','catalog.py','game_catalog.py','operations.py','log_observer.py','dashboard.html','tools.html')
+RUNTIME_FILES = ('server.py','acquisition.py','catalog.py','game_catalog.py','operations.py','log_observer.py','dashboard.html','tools.html','testing.html')
 _spawned = {}
 
 def probe(folder=root, port=18870):

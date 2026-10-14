@@ -1,3 +1,5 @@
+> **14.10.2026 — Server 0.3.3:** testing guide available at `/testing`, linked from dashboard and tools; links keep the guide open in its tab. 83 server tests passed.
+
 > **14.10.2026 — Server 0.3.2:** observer persistence and background panel updates fixed; 81 server tests passed. [Testing guide (RU)](docs/TESTING_SERVER_032.ru.md). Launcher stays Local10.
 
 > **14.10.2026 — Server 0.3.1 installed:** purchase rollback and Windows log rotation fixes; 75 tests passed. Launcher remains Local10. [Testing guide (RU)](docs/TESTING_SERVER_031.ru.md).
