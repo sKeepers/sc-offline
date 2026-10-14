@@ -1,3 +1,5 @@
+> 14.10.2026: [Local10 candidate + server0.3.3 release](https://github.com/sKeepers/sc-offline/releases/tag/ru-local-0.7.7-10-server-0.3.3). Current status: [README](../README.md). The content below records earlier development.
+
 # Разработка после Local6: Local7–Local10
 
 Обновлено 14 октября 2026 года. **На тестовом ПК установлен 0.7.7 / Local10 candidate.
