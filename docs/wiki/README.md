@@ -10,7 +10,7 @@
 
 ## Наша текущая точка
 
-Установлен **0.7.8.1 / Local11 candidate**, SDK 2.2.0, сервер 0.3.3. Сохранения и
+Установлен **0.7.8.1 / Local11 candidate**, SDK 2.2.0, сервер 0.3.4. Сохранения и
 локальный учёт покупок сохранены. Игровая приёмка этой версии ожидается. Возврат
 домой и применение старых XML-комплектов недоступны; новые игровые окна переведены
 частично. Старые наблюдения Andromeda относятся к Local10.
@@ -39,8 +39,8 @@
 | [StarBreaker — независимая сверка DataCore](projects/starbreaker.md) | Кандидат | 1 |
 | [Svarog — библиотека DataCore](projects/svarog.md) | Кандидат | 1 |
 | [star-citizen-live — события Game.log](projects/loglive.md) | Свой аналог готов | 2 |
-| [SC-Bridge Companion — парсер и дедупликация](projects/scbridge.md) | Кандидат | 1 |
-| [StarLogs — повреждения и зависания](projects/starlogs.md) | Кандидат | 1 |
+| [SC-Bridge Companion — парсер и дедупликация](projects/scbridge.md) | Свой аналог готов | 1 |
+| [StarLogs — повреждения и зависания](projects/starlogs.md) | Свой аналог готов | 1 |
 | [NexusApp — добыча и грузовые планы](projects/nexus.md) | Свой аналог готов | 2 |
 | [sc-nav — наблюдённые координаты](projects/scnav.md) | Свой аналог готов | 2 |
 | [Strata — сигналы пород и переработка](projects/strata.md) | Кандидат | 2 |

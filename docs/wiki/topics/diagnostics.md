@@ -5,8 +5,8 @@
 | Проект | Применение у нас | Приоритет |
 |---|---|---|
 | [star-citizen-live — события Game.log](../projects/loglive.md) | Свой аналог готов | 2 |
-| [SC-Bridge Companion — парсер и дедупликация](../projects/scbridge.md) | Кандидат | 1 |
-| [StarLogs — повреждения и зависания](../projects/starlogs.md) | Кандидат | 1 |
+| [SC-Bridge Companion — парсер и дедупликация](../projects/scbridge.md) | Свой аналог готов | 1 |
+| [StarLogs — повреждения и зависания](../projects/starlogs.md) | Свой аналог готов | 1 |
 | [SCStats — идеи отчётов о покупках](../projects/scstats.md) | Ограниченный перенос | 3 |
 
 Полезность, глубина проверки, ограничения и точный источник — в карточке каждого проекта.

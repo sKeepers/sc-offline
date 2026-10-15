@@ -26,7 +26,7 @@ if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-VERSION = '0.3.3'
+VERSION = '0.3.4'
 LIMIT = 64 * 1024
 MAX_CREDITS = 9_000_000_000_000
 # Catalog files: a version younger than CATALOG_SETTLE seconds is shown as "updating" (the last
@@ -403,7 +403,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('X-Frame-Options', 'DENY')
         self.send_header('Referrer-Policy', 'no-referrer')
-        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+        csp = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+        if self.path == "/testing" and kind.startswith("text/html"):csp += "; img-src 'self' data:"
+        self.send_header("Content-Security-Policy", csp)
         for k, v in (extra or {}).items():
             self.send_header(k, v)
         self.end_headers()

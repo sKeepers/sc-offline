@@ -8,7 +8,18 @@ from datetime import datetime, timezone
 import hashlib,json,os,re,threading,time
 from pathlib import Path
 
+# Independently written recognisers; tag formats compared with StarLogs (MIT).
+# A destruction/stall is a separate observation and must never become a crash verdict.
 def parse_line(line):
+    if not isinstance(line,str) or len(line)>16384:return None
+    if '<Actor stall>' in line:
+        m=re.search(r'Actor stall detected,\s*Player:\s*([^,\r\n]{1,80}),\s*Type:\s*([A-Za-z_-]{1,32}),\s*Length:\s*(\d{1,6}(?:\.\d{1,6})?)',line,re.I)
+        if m and 0<=float(m[3])<=86400:return {'kind':'actor_stall_signal','actor_name':m[1],'stall_type':m[2],'duration_seconds':m[3]}
+    if '<Vehicle Destruction>' in line and 'CVehicle::OnAdvanceDestroyLevel' in line:
+        m=re.search(r"Vehicle '([^'\r\n]{1,160})' \[(\d{1,20})\].*?advanced from destroy level ([0-2]) to ([0-2])(?: |$)",line)
+        if m and int(m[4])>int(m[3]):
+            return {'kind':'vehicle_disabled_signal' if m[4]=='1' else 'vehicle_destroyed_signal',
+                    'vehicle_name':m[1],'entity_id':m[2],'from_level':m[3],'to_level':m[4]}
     if 'MissionStartCommsNotification' in line:
         m=re.search(r'ContractId:\s*\[([\w-]+)\].*?MissionId:\s*([\w-]+)',line)
         if m:return {'kind':'mission_started','mission_id':m[2],'contract_id':m[1]}
@@ -69,6 +80,9 @@ def _open_shared(path):
     except BaseException:
         raw.close();raise             # FileIO owns the fd and closes it once
 
+_LOG_TIME=re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z?')
+DEDUP_SECONDS=5
+
 _HEX64=re.compile(r'[0-9a-f]{64}')
 
 def _valid_cursor(key,c):
@@ -81,7 +95,10 @@ def _valid_cursor(key,c):
 
 _EVENT_FIELDS={'mission_started':{'mission_id','contract_id'},'mission_ended':{'mission_id','outcome'},
                'objective':{'text'},'level_loading':{'level'},'session_log_started':set(),
-               'crash_signal':{'confirmed_crash'},'delivery_problem_signal':{'confirmed_delivery'}}
+               'crash_signal':{'confirmed_crash'},'delivery_problem_signal':{'confirmed_delivery'},
+               'actor_stall_signal':{'actor_name','stall_type','duration_seconds'},
+               'vehicle_disabled_signal':{'vehicle_name','entity_id','from_level','to_level'},
+               'vehicle_destroyed_signal':{'vehicle_name','entity_id','from_level','to_level'}}
 _EVENT_COMMON={'kind','observed_at','source','line_sha256','evidence'}
 
 def _valid_event(e):
@@ -91,7 +108,8 @@ def _valid_event(e):
     # here is a set of JSON object keys (always str) or an equality check, which cannot raise.
     if not isinstance(e,dict) or not isinstance(e.get('kind'),str) or e['kind'] not in _EVENT_FIELDS:return False
     extra=_EVENT_FIELDS[e['kind']]
-    if set(e)!=_EVENT_COMMON|extra or e['evidence']!='log_pattern':return False
+    if set(e)-{'log_timestamp'}!=_EVENT_COMMON|extra or e['evidence']!='log_pattern':return False
+    if 'log_timestamp' in e and (not isinstance(e['log_timestamp'],str) or not _LOG_TIME.fullmatch(e['log_timestamp'])):return False
     if not isinstance(e['line_sha256'],str) or not _HEX64.fullmatch(e['line_sha256']):return False
     if not isinstance(e['source'],str) or not 0<len(e['source'])<=255:return False
     if not isinstance(e['observed_at'],str) or len(e['observed_at'])>64:return False
@@ -101,6 +119,13 @@ def _valid_event(e):
         if name.startswith('confirmed_'):
             if e[name] is not False:return False
         elif not isinstance(e[name],str) or len(e[name])>1024:return False
+    if e['kind']=='actor_stall_signal':
+        if not 0<len(e['actor_name'])<=80 or not re.fullmatch(r'[A-Za-z_-]{1,32}',e['stall_type']):return False
+        if not re.fullmatch(r'\d{1,6}(?:\.\d{1,6})?',e['duration_seconds']) or float(e['duration_seconds'])>86400:return False
+    if e['kind'] in ('vehicle_disabled_signal','vehicle_destroyed_signal'):
+        if not 0<len(e['vehicle_name'])<=160 or not re.fullmatch(r'\d{1,20}',e['entity_id']):return False
+        if e['from_level'] not in ('0','1','2') or e['to_level'] not in ('1','2') or int(e['to_level'])<=int(e['from_level']):return False
+        if (e['kind']=='vehicle_disabled_signal') != (e['to_level']=='1'):return False
     return True
 
 def _no_constant(name):raise ValueError('Non-finite JSON constant')
@@ -118,6 +143,15 @@ class LogObserver:
         self.events=deque([e for e in events[-200:] if _valid_event(e)] if isinstance(events,list) else [],maxlen=200)
         self.cursors=dict([(k,v) for k,v in cursors.items() if _valid_cursor(k,v)][:64]) if isinstance(cursors,dict) else {}
         self.lock=threading.Lock();self.stop_event=threading.Event();self.worker=None;self.status={};self.absent=set()
+        self.recent={}
+        now=time.monotonic();wall=datetime.now(timezone.utc)
+        for e in self.events:
+            try:
+                date=datetime.fromisoformat(e['observed_at'])
+                if date.tzinfo is None:continue
+                age=max(0,(wall-date).total_seconds())
+                if age<DEDUP_SECONDS:self.recent[self._fingerprint(e)]=now-age
+            except (ValueError,TypeError):pass
         self.unsaved=False  # Claude 0.3.1 review: a failed save is retried on the next poll
 
     def poll(self):
@@ -152,8 +186,7 @@ class LogObserver:
                             end=raw.rfind(b'\n')+1
                             for line in raw[:end].decode('utf-8',errors='replace').splitlines():
                                 event=parse_line(line)
-                                if event:self.events.append({**event,'observed_at':datetime.now(timezone.utc).isoformat(),'source':path.name,
-                                                            'line_sha256':hashlib.sha256(line.encode()).hexdigest(),'evidence':'log_pattern'})
+                                if event:self._observe(event,line,path.name)
                             offset+=end;changed=True
                         elif len(raw)==READ_LIMIT:
                             # Bound an oversized malformed line. It is not an engine observation.
@@ -172,6 +205,27 @@ class LogObserver:
                     json.dump({'cursors':self.cursors,'events':list(self.events)},f,ensure_ascii=False);f.flush();os.fsync(f.fileno())
                 temp.replace(self.path)
                 self.unsaved=False;self.status.pop('monitor',None)
+
+    @staticmethod
+    def _fingerprint(event):
+        fields={k:v for k,v in event.items() if k not in _EVENT_COMMON and k!='log_timestamp'}
+        return (event.get('source'),event['kind'],json.dumps(fields,sort_keys=True,ensure_ascii=False))
+
+    def _observe(self,event,line,source):
+        now=time.monotonic();event=dict(event,source=source)
+        fingerprint=self._fingerprint(event)
+        line_hash=hashlib.sha256(line.encode()).hexdigest()
+        stamp=re.search(r'<('+_LOG_TIME.pattern+r')>',line[:64])
+        # Timestamped exact repeats are recognised across rotation/restart, within retained history.
+        # Undated repetitions use a short cooldown so a later real recurrence is not hidden forever.
+        if stamp and any(e.get('log_timestamp') and e['source']==source and e['line_sha256']==line_hash for e in self.events):return
+        self.recent={k:t for k,t in self.recent.items() if now-t<DEDUP_SECONDS}
+        if fingerprint in self.recent:return
+        if event['kind']=='session_log_started':self.recent={k:t for k,t in self.recent.items() if k[0]!=source}
+        if len(self.recent)>=512:self.recent.pop(next(iter(self.recent)))
+        self.recent[fingerprint]=now
+        self.events.append(dict(event,observed_at=datetime.now(timezone.utc).isoformat(),line_sha256=line_hash,
+                                evidence='log_pattern',**({'log_timestamp':stamp[1]} if stamp else {})))
 
     def snapshot(self):
         with self.lock:return {'sources':[{ 'file':Path(p).name,'status':s} for p,s in self.status.items()],
