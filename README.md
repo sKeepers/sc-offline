@@ -39,3 +39,6 @@ Windows x64, Python 3.11+ для сервера. Распакуйте в отд�
 
 
 15.10.2026: [Корабли по производителю и типу](docs/SHIP_GROUPS.ru.md) — фильтры и сортировка в меню и веб-каталоге. [Отдельная сборка](https://github.com/sKeepers/sc-offline/releases/tag/ru-local-0.7.8.1-11-ship-groups).
+
+
+15.10.2026: [Local12 / 0.7.8.3](docs/RELEASE_LOCAL12.ru.md) — пустые списки исправлены, RU и фильтры сохранены. [Свежая сборка](https://github.com/sKeepers/sc-offline/releases/tag/ru-local-0.7.8.3-12-server-0.3.4).
