@@ -1,5 +1,8 @@
 # sc-offline RU / Local
 
+[Вики полезных проектов](docs/wiki/README.md) — 20 источников, тематические разделы и план применения. [Скачать HTML-вики с поиском](https://github.com/sKeepers/sc-offline/raw/refs/heads/main/docs/wiki/index.html).
+
+
 **Актуальный предварительный пакет: 0.7.8.1 / Local11 candidate + сервер 0.3.3.**
 
 [Скачать сборку и исходники](https://github.com/sKeepers/sc-offline/releases/tag/ru-local-0.7.8.1-11-server-0.3.3) · [Что изменилось и ограничения](docs/RELEASE_LOCAL11.ru.md) · [Инструкция проверки HTML](docs/TESTING_LOCAL11.ru.html)
