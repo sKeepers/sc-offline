@@ -13,6 +13,18 @@ import sys
 import threading
 import time
 
+try:
+    SHIP_GROUPS = json.loads(Path(__file__).with_name('ship-groups.json').read_text(encoding='utf-8'))['ships']
+except (OSError, ValueError, KeyError, TypeError):
+    SHIP_GROUPS = {}  # Missing optional display data never hides a class.
+
+
+def ship_group(cls):
+    row = SHIP_GROUPS.get(cls, {})
+    return dict(manufacturer=row.get('manufacturer', MAKERS.get(cls.partition('_')[0].upper(), 'Other / unknown')),
+                ship_type=row.get('type_ru', 'Не определён'))
+
+
 MAKERS = dict(AEGS='Aegis', ANVL='Anvil', ARGO='Argo', BANU='Banu',
               CNOU='Consolidated Outland', CRUS='Crusader', DRAK='Drake',
               ESPR='Esperia', GAMA='Gatac', GRIN='Greycat', KRIG='Kruger',
@@ -553,7 +565,7 @@ class Catalog:
                   'category_list': [[k, v] for k, v in categories.items()], 'note': NOTE}
         for cls, cats in ships['rows']:
             result['ships'].append({'class_name': cls, 'name': table.get(ascii_lower(cls), fallback(cls, True)),
-                                    'category': cats[0]})
+                                    'category': cats[0], **ship_group(cls)})
         for cls, cats in items['rows']:
             own = fallback(cls)
             name = table.get(ascii_lower(cls)) or own

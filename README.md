@@ -36,3 +36,6 @@ Windows x64, Python 3.11+ для сервера. Распакуйте в отд�
 [Предыдущий Local10 + сервер 0.3.3](https://github.com/sKeepers/sc-offline/releases/tag/ru-local-0.7.7-10-server-0.3.3) остаётся доступен отдельно.
 
 [Работы до вечерней проверки](docs/OFFLINE_PREPARATION_20261015.ru.md): диагностика, сверка114 UUID и форма с локальными скриншотами.
+
+
+15.10.2026: [Корабли по производителю и типу](docs/SHIP_GROUPS.ru.md) — фильтры и сортировка в меню и веб-каталоге. [Отдельная сборка](https://github.com/sKeepers/sc-offline/releases/tag/ru-local-0.7.8.1-11-ship-groups).
